@@ -11,3 +11,6 @@ prisma/dev.db
 .DS_Store
 tsconfig.tsbuildinfo
 .vercel
+
+public/uploads
+public/uplads/videos
