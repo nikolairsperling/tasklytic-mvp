@@ -1,0 +1,2 @@
+import { PlaceholderPage } from "@/components/admin/placeholder-page";
+export default function Page(){return <PlaceholderPage title="Lead Scout" description="Bereich für Lead-Recherche, Import, Scoring und Datenanreicherung. In V1 nutzt du Import und manuelle Anlage." primaryHref="/admin/prospects" primaryLabel="Prospect manuell anlegen" secondaryHref="/admin/prospects" secondaryLabel="Prospects importieren"/>}

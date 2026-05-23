@@ -1,0 +1,5 @@
+import Link from "next/link";
+import { AdminCard, PageHeader } from "@/components/admin/ui";
+import { assetCards, getAssetCounts } from "@/lib/assets";
+export const dynamic="force-dynamic";
+export default async function Page(){const counts=await getAssetCounts();return <div><PageHeader title="Assets" description="Wiederverwendbare Bausteine für Kampagnen, Landingpages und Integrationen."/><div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{assetCards.map((card)=><Link key={card.href} href={card.href}><AdminCard className="h-full transition hover:-translate-y-0.5 hover:bg-white/10"><div className="flex h-full flex-col justify-between gap-5"><div><div className="mb-4 grid h-11 w-11 place-items-center rounded-xl bg-blue-600 text-white">{card.title[0]}</div><h2 className="text-lg font-semibold text-ink">{card.title}</h2><p className="mt-2 text-sm leading-6 text-slate-500">{card.description}</p></div><div className="flex items-center justify-between text-sm"><span className="text-slate-400">{counts[card.key]} Einträge</span><span className="text-cyan-300">→</span></div></div></AdminCard></Link>)}</div></div>}

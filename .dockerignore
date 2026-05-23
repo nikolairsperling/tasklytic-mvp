@@ -1,0 +1,10 @@
+.git
+.next
+node_modules
+coverage
+dist
+*.log
+.env
+.env.local
+backups
+tasklytic_mvp.zip

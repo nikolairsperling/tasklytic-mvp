@@ -1,0 +1,18 @@
+ALTER TABLE "AppSettings" ADD COLUMN "openTrackingEnabled" BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE "AppSettings" ADD COLUMN "clickTrackingEnabled" BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE "AppSettings" ADD COLUMN "trackingDomain" TEXT;
+ALTER TABLE "AppSettings" ADD COLUMN "appendUtmParams" BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE "AppSettings" ADD COLUMN "utmSource" TEXT NOT NULL DEFAULT 'tasklytic';
+ALTER TABLE "AppSettings" ADD COLUMN "utmMedium" TEXT NOT NULL DEFAULT 'email';
+ALTER TABLE "AppSettings" ADD COLUMN "utmCampaign" TEXT NOT NULL DEFAULT 'outreach';
+ALTER TABLE "AppSettings" ADD COLUMN "privacyNoticeText" TEXT NOT NULL DEFAULT '';
+ALTER TABLE "AppSettings" ADD COLUMN "trackingConsentMode" TEXT NOT NULL DEFAULT 'legitimate_interest';
+ALTER TABLE "AppSettings" ADD COLUMN "primaryColor" TEXT NOT NULL DEFAULT '#0891b2';
+ALTER TABLE "AppSettings" ADD COLUMN "accentColor" TEXT NOT NULL DEFAULT '#ecfeff';
+ALTER TABLE "AppSettings" ADD COLUMN "backgroundColor" TEXT NOT NULL DEFAULT '#f8fafc';
+ALTER TABLE "AppSettings" ADD COLUMN "textColor" TEXT NOT NULL DEFAULT '#0f172a';
+ALTER TABLE "AppSettings" ADD COLUMN "buttonRadius" INTEGER NOT NULL DEFAULT 12;
+ALTER TABLE "AppSettings" ADD COLUMN "cardRadius" INTEGER NOT NULL DEFAULT 16;
+ALTER TABLE "AppSettings" ADD COLUMN "fontFamily" TEXT NOT NULL DEFAULT 'Inter';
+ALTER TABLE "AppSettings" ADD COLUMN "logoUrl" TEXT;
+ALTER TABLE "AppSettings" ADD COLUMN "faviconUrl" TEXT;

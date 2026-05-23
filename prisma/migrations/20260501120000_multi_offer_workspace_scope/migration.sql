@@ -1,0 +1,7 @@
+DROP INDEX IF EXISTS "Offer_userId_idx";
+
+ALTER TABLE "Offer" DROP COLUMN IF EXISTS "userId";
+ALTER TABLE "Offer" ALTER COLUMN "businessName" DROP NOT NULL;
+ALTER TABLE "Offer" ALTER COLUMN "targetAudienceDescription" DROP NOT NULL;
+ALTER TABLE "Offer" ALTER COLUMN "valueProposition" DROP NOT NULL;
+ALTER TABLE "Offer" ALTER COLUMN "toneOfVoice" DROP NOT NULL;

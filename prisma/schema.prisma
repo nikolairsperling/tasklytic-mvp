@@ -1,0 +1,1174 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ProspectStatus {
+  draft
+  qualified
+  landingpage_ready
+  contacted
+  responded
+  disqualified
+}
+
+enum CampaignStatus {
+  draft
+  active
+  paused
+  completed
+}
+
+enum CampaignEnrollmentStatus {
+  active
+  completed
+  paused
+  replied
+  finished
+}
+
+enum AiCallStatus {
+  call_eligible
+  call_planned
+  call_called
+  call_interested
+  call_not_interested
+  call_callback_requested
+  call_failed
+}
+
+enum EmailSendStatus {
+  sent
+  failed
+}
+
+enum MailboxProvider {
+  imap
+}
+
+enum InboundEmailStatus {
+  unread
+  read
+  archived
+}
+
+enum EnrichmentRunStatus {
+  pending
+  completed
+  failed
+}
+
+enum IntegrationType {
+  slack
+  clickup
+  openai
+}
+
+enum AssetFileType {
+  image
+  logo
+  video
+}
+
+enum ImpactJobType {
+  landingpage
+  video
+  letter
+}
+
+enum ImpactJobStatus {
+  pending
+  running
+  completed
+  failed
+}
+
+enum VideoProvider {
+  mock
+  heygen
+  tavus
+  synthesia
+  custom
+}
+
+enum VideoGenerationStatus {
+  none
+  pending
+  script_ready
+  processing
+  ready
+  failed
+}
+
+model Prospect {
+  id                      String         @id @default(cuid())
+  slug                    String?        @unique
+  landingpageTemplateId   String?
+  companyName             String
+  legalName               String?
+  websiteUrl              String?
+  websiteOriginal         String?
+  websiteVerified         Boolean        @default(false)
+  websiteCandidate        String?
+  websiteConfidence       Int?
+  city                    String
+  postalCode              String?
+  street                  String?
+  phone                   String?
+  companyPhone            String?
+  companyEmail            String?
+  emailOriginal           String?
+  emailVerified           Boolean        @default(false)
+  emailCandidate          String?
+  emailConfidence         Int?
+  companyMatchConfidence  Int?
+  companyMatchSource      String?
+  contactPageUrl          String?
+  generalContactLabel     String?
+  state                   String?
+  country                 String         @default("DE")
+  companyStatus           String         @default("unclear")
+  employeeRange           String?
+  employeeCount           Int?
+  vehicleCount            Int?
+  trailerCount            Int?
+  locationsCount          Int?
+  businessFields          String[]
+  isFamilyOwned           Boolean?
+  decisionMakerName       String?
+  decisionMakerRole       String?
+  decisionMakerEmail      String?
+  decisionMakerPhone      String?
+  decisionMakerSourceUrl  String?
+  decisionMakerSourceTextSnippet String?
+  decisionMakerFoundAt    DateTime?
+  decisionMakerConfidence String?
+  contactCandidates       Json?
+  salutation              String?
+  firstName               String?
+  lastName                String?
+  linkedinUrl             String?
+  openDispatcherJob       Boolean        @default(false)
+  jobUrl                  String?
+  jobSignalText           String?
+  fleetSignalText         String?
+  locationSignalText      String?
+  contactStructureSignalText String?
+  websiteMaturitySignal   String?
+  videoUrl                String?
+  calendarUrl             String?
+  bookingUrl              String?
+  customPainPoint         String?
+  customHeroHeadline      String?
+  customHeroSubline       String?
+  customHeroBodyText      String?
+  customHeroCtaText       String?
+  customHeroCtaUrl        String?
+  personalVideoUrl        String?
+  personalVideoThumbnailUrl String?
+  personalVideoScript     String?
+  personalVideoStatus     VideoGenerationStatus @default(none)
+  personalVideoProvider   String?
+  personalVideoJobId      String?
+  personalVideoError      String?
+  landingpageUrl          String?
+  landingpageReviewStatus String         @default("draft")
+  emailStatus             String?
+  lastContactedAt         DateTime?
+  lastEmailSentAt         DateTime?
+  explainerVideoUrl       String?
+  individualCtaText       String?
+  icpScore                Int            @default(0)
+  icpFitScore             Int            @default(0)
+  icpFitLabel             String         @default("low")
+  industry                String?
+  timingScore             Int            @default(0)
+  painScore               Int            @default(0)
+  painType                String?
+  painSummary             String?
+  painEvidence            Json?
+  hiringSignal            Boolean        @default(false)
+  growthSignal            Boolean        @default(false)
+  manualProcessSignal     Boolean        @default(false)
+  digitalWeaknessSignal   Boolean        @default(false)
+  personalizationAngle    String?
+  researchStatus          String         @default("not_started")
+  researchSources         Json?
+  researchedAt            DateTime?
+  lastResearchError       String?
+  lastResearchErrorCode   String?
+  lastResearchAt          DateTime?
+  failedStep              String?
+  sourceUrl               String?
+  lastAttemptAt           DateTime?
+  lastSuccessfulResearchAt DateTime?
+  enrichmentStatus        String         @default("not_started")
+  enrichmentUpdatedAt     DateTime?
+  enrichmentSource        String?
+  enrichmentConfidence    Int?
+  enrichmentNotes         String?
+  enrichmentSuggestions   Json?
+  companyDescription      String?
+  services                Json?
+  companySizeLabel        String?
+  employeeCountEstimate   Int?
+  fleetSizeEstimate       Int?
+  specialization          String?
+  targetCustomers         String?
+  companyProfileSummary   String?
+  fitScore                Int            @default(0)
+  icpCategory             String         @default("low")
+  painSignals             Json           @default("[]")
+  isHotLead               Boolean        @default(false)
+  contactQualityScore     Int            @default(0)
+  totalScore              Int            @default(0)
+  engagementScore         Int            @default(0)
+  engagementLevel         String         @default("cold")
+  leadStatus              String         @default("open")
+  followUpAt              DateTime?
+  followUpReason          String?
+  followUpStatus          String         @default("open")
+  assignedTo              String?
+  showInCrm               Boolean        @default(true)
+  source                  String?
+  targetGroupId           String?
+  suggestedOfferId        String?
+  status                  ProspectStatus @default(draft)
+  createdAt               DateTime       @default(now())
+  updatedAt               DateTime       @updatedAt
+  campaignEnrollments     CampaignEnrollment[]
+  emailSendLogs           EmailSendLog[]
+  events                  ProspectEvent[]
+  inboundEmails           InboundEmail[]
+  enrichmentRuns          ProspectEnrichmentRun[]
+  clickUpSyncLogs         ClickUpSyncLog[]
+  notes                   ProspectNote[]
+  aiCalls                 AiCall[]
+  reportAssets            ReportAsset[]
+  voiceAiTestCalls         VoiceAiTestCall[]
+  leadImportRows          LeadImportRow[]
+  leadListMembers         LeadListMember[]
+  landingpageTemplate     LandingpageTemplate? @relation(fields: [landingpageTemplateId], references: [id], onDelete: SetNull)
+  targetGroup             TargetGroup?    @relation(fields: [targetGroupId], references: [id], onDelete: SetNull)
+  suggestedOffer          Offer?          @relation(fields: [suggestedOfferId], references: [id], onDelete: SetNull)
+  videoGenerationJobs     VideoGenerationJob[]
+  selectedForCampaigns    Campaign[]
+
+  @@index([targetGroupId])
+  @@index([suggestedOfferId])
+}
+
+model AiCall {
+  id                    String       @id @default(cuid())
+  prospectId            String
+  status                AiCallStatus @default(call_planned)
+  plannedFor            DateTime?
+  approvedAt            DateTime?
+  approvedBy            String?
+  calledAt              DateTime?
+  completedAt           DateTime?
+  voice                 String       @default("neutral")
+  priority              Int          @default(0)
+  phone                 String
+  eligibilitySnapshot   Json         @default("{}")
+  detectedInterest      String?
+  detectedObjection     String?
+  summary               String?
+  painPoints            Json         @default("[]")
+  objections            Json         @default("[]")
+  nextStep              String?
+  callbackRequestedAt   DateTime?
+  appointmentStatus     String?
+  transcript            String?
+  audioUrl              String?
+  confidenceScore       Int?
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
+  prospect              Prospect     @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+
+  @@index([prospectId, createdAt])
+  @@index([status, plannedFor])
+}
+
+model TargetGroup {
+  id                String     @id @default(cuid())
+  name              String
+  defaultOfferId    String?
+  description       String?
+  industryKeywords  Json
+  painKeywords      Json
+  icpRules          Json
+  emailTone         String
+  landingpageStyle  String
+  videoStyle        String
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+  prospects         Prospect[]
+  campaigns         Campaign[]
+  offers            Offer[]
+  leadLists         LeadList[]
+  defaultOffer      Offer?     @relation("TargetGroupDefaultOffer", fields: [defaultOfferId], references: [id], onDelete: SetNull)
+
+  @@index([defaultOfferId])
+}
+
+model LeadList {
+  id            String           @id @default(cuid())
+  name          String
+  description   String?
+  targetGroupId String?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  targetGroup   TargetGroup?     @relation(fields: [targetGroupId], references: [id], onDelete: SetNull)
+  members       LeadListMember[]
+
+  @@index([targetGroupId])
+  @@index([createdAt])
+}
+
+model LeadListMember {
+  id         String   @id @default(cuid())
+  leadListId String
+  prospectId String
+  createdAt  DateTime @default(now())
+  leadList   LeadList @relation(fields: [leadListId], references: [id], onDelete: Cascade)
+  prospect   Prospect @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+
+  @@unique([leadListId, prospectId])
+  @@index([prospectId])
+}
+
+model Offer {
+  id                         String   @id @default(cuid())
+  workspaceId                String   @default("default")
+  name                       String
+  targetGroupId              String?
+  businessName               String?
+  serviceDescription         String
+  targetAudienceDescription  String?
+  coreProblems               Json
+  solutions                  Json
+  valueProposition           String?
+  toneOfVoice                String?
+  isDefault                  Boolean  @default(false)
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
+  targetGroup                TargetGroup? @relation(fields: [targetGroupId], references: [id], onDelete: SetNull)
+  defaultForTargetGroups     TargetGroup[] @relation("TargetGroupDefaultOffer")
+  campaigns                  Campaign[]
+  suggestedForProspects      Prospect[]
+
+  @@index([workspaceId])
+  @@index([targetGroupId])
+  @@index([isDefault])
+}
+
+model UserOffer {
+  id                         String   @id @default(cuid())
+  userId                     String   @unique
+  businessName               String
+  serviceDescription         String
+  targetAudienceDescription  String
+  coreProblems               Json
+  solutions                  Json
+  valueProposition           String
+  toneOfVoice                String
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
+}
+
+model ProspectNote {
+  id         String   @id @default(cuid())
+  prospectId String
+  text       String
+  createdAt  DateTime @default(now())
+  prospect   Prospect @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+
+  @@index([prospectId, createdAt])
+}
+
+model LeadImportBatch {
+  id             String          @id @default(cuid())
+  filename       String
+  status         String          @default("uploaded")
+  totalRows      Int             @default(0)
+  createdCount   Int             @default(0)
+  updatedCount   Int             @default(0)
+  skippedCount   Int             @default(0)
+  invalidCount   Int             @default(0)
+  duplicateCount Int             @default(0)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  rows           LeadImportRow[]
+  enrichmentJobs EnrichmentJob[]
+
+  @@index([status, createdAt])
+}
+
+model LeadImportRow {
+  id         String          @id @default(cuid())
+  batchId    String
+  rawJson    Json
+  mappedJson Json?
+  status     String          @default("pending")
+  reason     String?
+  prospectId String?
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+  batch      LeadImportBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  prospect   Prospect?       @relation(fields: [prospectId], references: [id], onDelete: SetNull)
+  enrichmentJobItems EnrichmentJobItem[]
+
+  @@index([batchId, status])
+  @@index([prospectId])
+}
+
+model EnrichmentJob {
+  id              String              @id @default(cuid())
+  batchId         String
+  status          String              @default("queued")
+  total           Int                 @default(0)
+  processed       Int                 @default(0)
+  successful      Int                 @default(0)
+  invalid         Int                 @default(0)
+  failed          Int                 @default(0)
+  currentLeadName String?
+  errors          Json                @default("[]")
+  startedAt       DateTime?
+  finishedAt      DateTime?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  batch           LeadImportBatch     @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  items           EnrichmentJobItem[]
+
+  @@index([batchId, createdAt])
+  @@index([status, updatedAt])
+}
+
+model EnrichmentJobItem {
+  id              String        @id @default(cuid())
+  jobId           String
+  leadImportRowId String
+  prospectId      String?
+  companyName     String?
+  status          String        @default("queued")
+  error           String?
+  startedAt       DateTime?
+  finishedAt      DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  job             EnrichmentJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  leadImportRow   LeadImportRow @relation(fields: [leadImportRowId], references: [id], onDelete: Cascade)
+
+  @@unique([jobId, leadImportRowId])
+  @@index([jobId, status])
+  @@index([leadImportRowId])
+  @@index([prospectId])
+}
+
+model ProspectEnrichmentRun {
+  id              String              @id @default(cuid())
+  prospectId      String
+  status          EnrichmentRunStatus @default(pending)
+  sourceUrl       String
+  pagesScanned    Int                 @default(0)
+  confidence      Int                 @default(0)
+  rawSummary      String?
+  suggestionsJson Json
+  sourcesJson     Json
+  errorMessage    String?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  prospect        Prospect            @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+
+  @@index([prospectId, createdAt])
+}
+
+model LandingpageTemplate {
+  id                         String   @id @default(cuid())
+  name                       String
+  isDefault                  Boolean  @default(false)
+  logoUrl                    String?
+  headerLogoUrl              String?
+  headerLogoAlt              String?
+  headerLogoWidth            Int?
+  headerLogoHeight           Int?
+  headerLogoPosition         String   @default("left")
+  headerShowTextFallback     Boolean  @default(true)
+  headerTextFallback         String   @default("Tasklytic")
+  primaryColor               String   @default("#101828")
+  accentColor                String   @default("#14b8a6")
+  backgroundMode             String   @default("light")
+  addressForm                String   @default("du")
+  defaultCtaText             String   @default("Gratis Termin vereinbaren")
+  defaultCtaUrl              String?
+  bookingMode                String   @default("embedded_page")
+  bookingHeadline            String?
+  bookingSubheadline         String?
+  bookingBackText            String   @default("Zurück zur Landingpage")
+  bookingExternalButtonText  String   @default("Termin extern öffnen")
+  heroEnabled                Boolean  @default(true)
+  heroEyebrow                String?
+  heroHeadline               String
+  heroSubheadline            String?
+  heroBodyText               String?
+  heroCtaText                String?
+  heroCtaUrl                 String?
+  heroSecondaryCtaText       String?
+  heroSecondaryCtaUrl        String?
+  heroVideoPosition          String   @default("right")
+  heroLayout                 String   @default("video_right")
+  personalVideoEnabled       Boolean  @default(true)
+  personalVideoUrl           String?
+  personalVideoThumbnailUrl  String?
+  personalVideoTitle         String?
+  personalVideoButtonText    String   @default("Persönliches Video ansehen")
+  explainerVideoEnabled      Boolean  @default(true)
+  explainerVideoUrl          String?
+  explainerVideoThumbnailUrl String?
+  explainerVideoTitle        String?
+  explainerVideoSubline      String?
+  explainerVideoButtonText   String   @default("Erklärvideo ansehen")
+  explainerCtaText           String?
+  explainerCtaUrl            String?
+  comparisonEnabled          Boolean  @default(true)
+  comparisonHeadline         String?
+  beforeItems                String[]
+  afterItems                 String[]
+  approachEnabled            Boolean  @default(true)
+  approachHeadline           String?
+  approachText               String?
+  faqEnabled                 Boolean  @default(true)
+  faqJson                    Json
+  sectionsJson               Json     @default("[]")
+  globalDesignJson           Json     @default("{}")
+  finalCtaEnabled            Boolean  @default(true)
+  finalCtaHeadline           String?
+  finalCtaText               String?
+  finalCtaUrl                String?
+  footerText                 String?
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
+  prospects                  Prospect[]
+}
+
+model AppSettings {
+  id        String   @id @default("default")
+  appName   String   @default("Tasklytic")
+  themeMode String   @default("dark")
+  openTrackingEnabled Boolean @default(true)
+  clickTrackingEnabled Boolean @default(true)
+  trackingDomain String?
+  appendUtmParams Boolean @default(false)
+  utmSource String @default("tasklytic")
+  utmMedium String @default("email")
+  utmCampaign String @default("outreach")
+  privacyNoticeText String @default("")
+  trackingConsentMode String @default("legitimate_interest")
+  primaryColor String @default("#0891b2")
+  secondaryColor String @default("#ecfeff")
+  accentColor String @default("#ecfeff")
+  backgroundColor String @default("#f8fafc")
+  textColor String @default("#0f172a")
+  buttonRadius Int @default(12)
+  cardRadius Int @default(16)
+  selectedFont String @default("Inter")
+  fontFamily String @default("Inter")
+  logoUrl String?
+  iconUrl String?
+  faviconUrl String?
+  ownPhoneNumber String?
+  defaultCountryDialCode String @default("+49")
+  callProviderMode String @default("tel-link")
+  voiceAiProvider String @default("test")
+  voiceAiDefaultVoice String @default("neutral")
+  voiceAiEnabled Boolean @default(false)
+  imprintMode String @default("content")
+  imprintUrl String?
+  imprintContent String @default("")
+  privacyMode String @default("content")
+  privacyUrl String?
+  privacyContent String @default("")
+  cookiesMode String @default("content")
+  cookiesUrl String?
+  cookiesContent String @default("")
+  pushNewEmailEnabled Boolean @default(true)
+  pushReplyEnabled Boolean @default(true)
+  pushLeadEnrichmentEnabled Boolean @default(true)
+  pushFollowUpEnabled Boolean @default(true)
+  pushCampaignStatusEnabled Boolean @default(true)
+  pushErrorEnabled Boolean @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model AdminUser {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String?
+  role         String   @default("admin")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String?
+  endpoint  String   @unique
+  p256dh     String
+  auth      String
+  userAgent String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model NotificationEvent {
+  id        String   @id @default(cuid())
+  type      String
+  title     String
+  body      String
+  url       String?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  deletedAt DateTime?
+
+  @@index([read, createdAt])
+  @@index([type, createdAt])
+  @@index([deletedAt, createdAt])
+}
+
+model NotificationDismissal {
+  id             String   @id @default(cuid())
+  notificationId String   @unique
+  createdAt      DateTime @default(now())
+}
+
+model Campaign {
+  id          String               @id @default(cuid())
+  name        String
+  status      CampaignStatus       @default(draft)
+  targetGroupId String?
+  offerId     String
+  selectedProspectId String?
+  trackingEnabled Boolean          @default(false)
+  estimatedDealValue Int?
+  estimatedCostPerLead Int?
+  notes       String?
+  scheduledStartAt DateTime?
+  timezone    String               @default("Europe/Berlin")
+  sendWindowStart String?
+  sendWindowEnd String?
+  weekdaysOnly Boolean             @default(true)
+  manualGoApproved Boolean         @default(false)
+  sendingStatus String             @default("draft")
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+  steps       CampaignStep[]
+  emailVariants CampaignEmailVariant[]
+  enrollments CampaignEnrollment[]
+  sendLogs    EmailSendLog[]
+  inboundEmails InboundEmail[]
+  impactJobs  ImpactJob[]
+  videoGenerationJobs VideoGenerationJob[]
+  flowSettings CampaignFlowSettings?
+  targetGroup TargetGroup?          @relation(fields: [targetGroupId], references: [id], onDelete: SetNull)
+  offer       Offer                 @relation(fields: [offerId], references: [id], onDelete: Restrict)
+  selectedProspect Prospect?         @relation(fields: [selectedProspectId], references: [id], onDelete: SetNull)
+
+  @@index([targetGroupId])
+  @@index([offerId])
+  @@index([selectedProspectId])
+}
+
+model CampaignFlowSettings {
+  id                  String   @id @default(cuid())
+  campaignId          String   @unique
+  generateLandingpage Boolean  @default(true)
+  generateVideo       Boolean  @default(false)
+  sendEmail           Boolean  @default(true)
+  followUpDays        Int?
+  emailTemplateId     String?
+  videoTemplateId     String?
+  createdAt           DateTime @default(now())
+  campaign            Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId])
+}
+
+model ImpactJob {
+  id             String          @id @default(cuid())
+  type           ImpactJobType
+  name           String
+  campaignId     String?
+  status         ImpactJobStatus @default(pending)
+  totalItems     Int             @default(0)
+  processedItems Int             @default(0)
+  creditsUsed    Int             @default(0)
+  resultJson     Json?
+  errorMessage   String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  campaign       Campaign?       @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+
+  @@index([type, status])
+  @@index([campaignId])
+}
+
+model CampaignStep {
+  id         String   @id @default(cuid())
+  campaignId String
+  position   Int
+  stepNumber Int      @default(1)
+  delayDays  Int
+  subject    String
+  bodyText   String
+  body       String   @default("")
+  isActive   Boolean  @default(true)
+  bodyHtml   String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  sendLogs   EmailSendLog[]
+
+  @@unique([campaignId, position])
+  @@unique([campaignId, stepNumber])
+  @@index([campaignId, delayDays])
+}
+
+model CampaignEmailVariant {
+  id             String   @id @default(cuid())
+  campaignId     String
+  label          String
+  subject        String
+  bodyText       String
+  weight         Int      @default(50)
+  landingpageUrl String?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  campaign       Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  enrollments    CampaignEnrollment[]
+  sendLogs       EmailSendLog[]
+
+  @@unique([campaignId, label])
+  @@index([campaignId, isActive])
+}
+
+model CampaignEnrollment {
+  id           String                   @id @default(cuid())
+  campaignId   String
+  prospectId   String
+  status       CampaignEnrollmentStatus @default(active)
+  currentStep  Int                      @default(1)
+  emailVariantId String?
+  emailVariantLabel String?
+  blockedReason String?
+  nextSendAt   DateTime?
+  lastSentAt   DateTime?
+  repliedAt    DateTime?
+  bookedAt     DateTime?
+  notInterestedAt DateTime?
+  lastActivityAt DateTime?
+  createdAt    DateTime                 @default(now())
+  updatedAt    DateTime                 @updatedAt
+  campaign     Campaign                 @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  prospect     Prospect                 @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+  emailVariant CampaignEmailVariant?     @relation(fields: [emailVariantId], references: [id], onDelete: SetNull)
+  sendLogs     EmailSendLog[]
+
+  @@unique([campaignId, prospectId])
+  @@index([campaignId, status])
+  @@index([campaignId, nextSendAt])
+  @@index([emailVariantId])
+  @@index([prospectId])
+}
+
+model EmailSendLog {
+  id           String             @id @default(cuid())
+  campaignId   String
+  stepId       String
+  enrollmentId String
+  prospectId   String
+  emailVariantId String?
+  emailVariantLabel String?
+  email        String
+  status       EmailSendStatus
+  subject      String
+  trackingToken String?           @unique
+  clickToken    String?           @unique
+  openedAt      DateTime?
+  openCount     Int                @default(0)
+  clickedAt     DateTime?
+  clickCount    Int                @default(0)
+  repliedAt     DateTime?
+  landingpageUrl String?
+  error        String?
+  messageId    String?
+  sentAt       DateTime?
+  createdAt    DateTime           @default(now())
+  campaign     Campaign           @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  emailVariant CampaignEmailVariant? @relation(fields: [emailVariantId], references: [id], onDelete: SetNull)
+  step         CampaignStep       @relation(fields: [stepId], references: [id], onDelete: Cascade)
+  enrollment   CampaignEnrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  prospect     Prospect           @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId, createdAt])
+  @@index([campaignId, emailVariantId])
+  @@index([enrollmentId, stepId])
+  @@index([prospectId])
+}
+
+model ProspectEvent {
+  id         String   @id @default(cuid())
+  prospectId String
+  type       String
+  meta       Json?
+  scoreDelta Int      @default(0)
+  createdAt  DateTime @default(now())
+  prospect   Prospect @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+
+  @@index([prospectId, createdAt])
+  @@index([type, createdAt])
+}
+
+model ReportAsset {
+  id            String   @id @default(cuid())
+  prospectId    String
+  landingpageId String
+  reportUrl     String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  prospect      Prospect @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+
+  @@index([prospectId, createdAt])
+  @@index([landingpageId])
+}
+
+model VoiceAiTestCall {
+  id                    String   @id @default(cuid())
+  prospectId            String?
+  testPhoneNumber       String
+  voice                 String
+  scenario              String
+  provider              String   @default("test")
+  status                String   @default("completed")
+  transcript            String
+  audioUrl              String?
+  summary               String
+  detectedObjections    String[]
+  conversationQuality   String
+  appointmentIntent     String
+  recommendedImprovement String
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  prospect              Prospect? @relation(fields: [prospectId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([prospectId, createdAt])
+}
+
+model SmtpSettings {
+  id                String   @id @default("default")
+  host              String
+  port              Int
+  secure            Boolean  @default(false)
+  user              String
+  encryptedPassword String?
+  fromEmail         String
+  fromName          String
+  replyToEmail      String?
+  dailyLimit        Int      @default(50)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model MailboxSettings {
+  id                String          @id @default("default")
+  provider          MailboxProvider @default(imap)
+  host              String
+  port              Int
+  secure            Boolean         @default(true)
+  user              String
+  encryptedPassword String?
+  warmupStartDate   DateTime?
+  warmupLevel       Int?
+  testedAt          DateTime?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+}
+
+model InboundEmail {
+  id                String             @id @default(cuid())
+  messageId         String             @unique
+  fromEmail         String
+  fromName          String?
+  toEmail           String?
+  subject           String
+  bodyText          String
+  receivedAt        DateTime
+  matchedProspectId String?
+  matchedCampaignId String?
+  category          String             @default("neutral")
+  confidence        Int                @default(0)
+  aiSummary         String?
+  status            InboundEmailStatus @default(unread)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  matchedProspect   Prospect?          @relation(fields: [matchedProspectId], references: [id], onDelete: SetNull)
+  matchedCampaign   Campaign?          @relation(fields: [matchedCampaignId], references: [id], onDelete: SetNull)
+
+  @@index([fromEmail])
+  @@index([matchedProspectId])
+  @@index([matchedCampaignId])
+  @@index([receivedAt])
+}
+
+model IntegrationSettings {
+  id              String          @id @default(cuid())
+  type            IntegrationType @unique
+  enabled         Boolean         @default(false)
+  configJson      Json
+  encryptedSecret String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+}
+
+model ClickUpSyncLog {
+  id            String    @id @default(cuid())
+  prospectId    String?
+  clickUpTaskId String?
+  action        String
+  status        String
+  matchedBy     String?
+  errorMessage  String?
+  payloadJson   Json      @default("{}")
+  createdAt     DateTime  @default(now())
+  prospect      Prospect? @relation(fields: [prospectId], references: [id], onDelete: SetNull)
+
+  @@index([prospectId, createdAt])
+  @@index([status, createdAt])
+  @@index([action, createdAt])
+}
+
+model SystemErrorLog {
+  id              String    @id @default(cuid())
+  requestId       String    @unique
+  area            String
+  action          String
+  apiRoute        String?
+  method          String?
+  httpStatus      Int?
+  errorCode       String
+  userMessage     String
+  technicalDetail String?
+  responseBody    String?
+  durationMs      Int?
+  affectedType    String?
+  affectedId      String?
+  source          String    @default("server")
+  createdAt       DateTime  @default(now())
+
+  @@index([createdAt])
+  @@index([area, createdAt])
+  @@index([errorCode, createdAt])
+  @@index([affectedType, affectedId])
+}
+
+model EmailTemplate {
+  id        String   @id @default(cuid())
+  name      String
+  subject   String
+  body      String
+  category  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model LetterTemplate {
+  id                               String   @id @default(cuid())
+  name                             String
+  title                            String?
+  body                             String   @default("")
+  footer                           String?
+  description                      String?
+  googleDocId                      String?
+  googleDocUrl                     String?
+  qrCodePosition                   String?
+  landingPageUrlVariable           String   @default("{{LandingPage_URL}}")
+  previewText                      String   @default("")
+  googleDocsText                   String   @default("")
+  googleDocsJson                   Json     @default("{}")
+  imageAltTexts                    String[] @default([])
+  pageCount                        Int?
+  isDefault                        Boolean  @default(false)
+  isSystemTemplate                 Boolean  @default(false)
+  isInUse                          Boolean  @default(false)
+  isChecked                        Boolean  @default(false)
+  lastCheckStatus                  String   @default("unchecked")
+  lastCheckSummary                 String?
+  lastCheckIssues                  Json     @default("[]")
+  detectedRecipientVariables       String[] @default([])
+  detectedSenderVariables          String[] @default([])
+  detectedPersonalizationVariables String[] @default([])
+  systemKey                        String?  @unique
+  createdAt                        DateTime @default(now())
+  updatedAt                        DateTime @updatedAt
+
+  @@index([isSystemTemplate])
+  @@index([isChecked])
+  @@index([createdAt])
+}
+
+model MessageTemplate {
+  id             String   @id @default(cuid())
+  name           String
+  channel        String   @default("email")
+  bodyText       String
+  subject        String?
+  category       String?
+  status         String   @default("draft")
+  targetAudience String?
+  tone           String?
+  qualityScore   Int?
+  qualityJson    Json     @default("{}")
+  lastTestJson   Json     @default("{}")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([channel])
+  @@index([category])
+  @@index([status])
+  @@index([updatedAt])
+}
+
+model BookingCalendar {
+  id                  String   @id @default(cuid())
+  provider            String   @default("custom")
+  displayName         String
+  bookingUrl          String
+  description         String?
+  isActive            Boolean  @default(true)
+  isDefault           Boolean  @default(false)
+  clickTracking       Boolean  @default(false)
+  conversionTracking  Boolean  @default(false)
+  lastTestStatus      String   @default("untested")
+  lastTestStatusCode  Int?
+  lastTestMessage     String?
+  lastTestedAt        DateTime?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([provider])
+  @@index([isActive])
+  @@index([isDefault])
+  @@index([updatedAt])
+}
+
+model VideoAsset {
+  id           String   @id @default(cuid())
+  name         String
+  filename     String   @default("")
+  originalName String   @default("")
+  url          String
+  mobileUrl    String?
+  webmUrl      String?
+  mimeType     String   @default("video/mp4")
+  sizeBytes    Int      @default(0)
+  thumbnailUrl String?
+  description  String?
+  category     String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model VideoTemplate {
+  id                  String               @id @default(cuid())
+  name                String
+  provider            VideoProvider        @default(mock)
+  providerTemplateId  String?
+  defaultScriptPrompt String?
+  defaultThumbnailUrl String?
+  isActive            Boolean              @default(true)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  jobs                VideoGenerationJob[]
+
+  @@index([provider, isActive])
+}
+
+model VideoGenerationJob {
+  id              String                @id @default(cuid())
+  prospectId      String
+  campaignId      String?
+  videoTemplateId String?
+  provider        VideoProvider         @default(mock)
+  status          VideoGenerationStatus @default(pending)
+  scriptText      String?
+  videoUrl        String?
+  thumbnailUrl    String?
+  errorMessage    String?
+  providerJobId   String?
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+  prospect        Prospect              @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+  campaign        Campaign?             @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  videoTemplate   VideoTemplate?        @relation(fields: [videoTemplateId], references: [id], onDelete: SetNull)
+
+  @@index([prospectId, createdAt])
+  @@index([campaignId])
+  @@index([status])
+}
+
+model ImageAsset {
+  id          String   @id @default(cuid())
+  name        String
+  url         String
+  altText     String?
+  category    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model AssetFile {
+  id           String        @id @default(cuid())
+  type         AssetFileType
+  originalName String
+  fileName     String
+  mimeType     String
+  sizeBytes    Int
+  publicUrl    String
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@index([type, createdAt])
+}
+
+model ConnectedAccount {
+  id          String               @id @default(cuid())
+  name        String
+  type        String
+  provider    String?
+  status      String               @default("active")
+  notes       String?
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+}
+
+model EmailSignature {
+  id        String   @id @default(cuid())
+  name      String
+  html      String
+  plainText String
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isDefault])
+}

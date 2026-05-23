@@ -1,0 +1,17 @@
+ALTER TABLE "Prospect" ADD COLUMN "icpFitLabel" TEXT NOT NULL DEFAULT 'low';
+ALTER TABLE "Prospect" ADD COLUMN "industry" TEXT;
+ALTER TABLE "Prospect" ADD COLUMN "painType" TEXT;
+ALTER TABLE "Prospect" ADD COLUMN "painSummary" TEXT;
+ALTER TABLE "Prospect" ADD COLUMN "painEvidence" JSONB;
+ALTER TABLE "Prospect" ADD COLUMN "personalizationAngle" TEXT;
+ALTER TABLE "Prospect" ADD COLUMN "researchStatus" TEXT NOT NULL DEFAULT 'not_started';
+ALTER TABLE "Prospect" ADD COLUMN "researchSources" JSONB;
+ALTER TABLE "Prospect" ADD COLUMN "researchedAt" TIMESTAMP(3);
+ALTER TABLE "Prospect" ADD COLUMN "companyDescription" TEXT;
+ALTER TABLE "Prospect" ADD COLUMN "services" JSONB;
+ALTER TABLE "Prospect" ADD COLUMN "companySizeLabel" TEXT;
+ALTER TABLE "Prospect" ADD COLUMN "employeeCountEstimate" INTEGER;
+ALTER TABLE "Prospect" ADD COLUMN "fleetSizeEstimate" INTEGER;
+ALTER TABLE "Prospect" ADD COLUMN "specialization" TEXT;
+ALTER TABLE "Prospect" ADD COLUMN "targetCustomers" TEXT;
+ALTER TABLE "Prospect" ADD COLUMN "companyProfileSummary" TEXT;

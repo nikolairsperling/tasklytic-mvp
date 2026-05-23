@@ -1,0 +1,1 @@
+ALTER TABLE "EmailSendLog" ADD COLUMN "repliedAt" TIMESTAMP(3);
