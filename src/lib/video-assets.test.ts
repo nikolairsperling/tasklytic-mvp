@@ -228,10 +228,10 @@ describe.sequential("video asset uploads", () => {
 
     expect(builderSource).toContain('from "@/components/landing/video-preview"');
     expect(builderSource).toContain('from "@/lib/landingpage/video-preview-props"');
-    expect(templatePreviewSource).toContain('from "@/components/landing/video-preview"');
-    expect(templatePreviewSource).toContain('from "@/lib/landingpage/video-preview-props"');
-    expect(liveSource).toContain('from "@/components/landing/video-preview"');
-    expect(liveSource).toContain('from "@/lib/landingpage/video-preview-props"');
+    expect(templatePreviewSource).toContain('from "@/components/landing/LandingVideo"');
+    expect(liveSource).toContain('from "@/components/landing/LandingVideo"');
+    expect(readFileSync(path.join(process.cwd(), "src/components/landing/LandingVideo.tsx"), "utf8")).toContain('from "@/components/landing/video-preview"');
+    expect(readFileSync(path.join(process.cwd(), "src/components/landing/LandingVideo.tsx"), "utf8")).toContain('from "@/lib/landingpage/video-preview-props"');
     expect(propsSource).not.toContain('"use client"');
     expect(propsSource).toContain("export function videoPreviewPropsFromSettings");
     expect(sharedSource).toContain('className="video-frame"');

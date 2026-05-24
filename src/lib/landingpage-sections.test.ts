@@ -164,6 +164,6 @@ describe("landingpage sections", () => {
 
   it("parses global design json strings safely", () => {
     expect(getGlobalLandingpageDesign({ ...template([]), globalDesignJson: "{\"backgroundColor\":\"#ffffff\"}" }).backgroundColor).toBe("#ffffff");
-    expect(getGlobalLandingpageDesign({ ...template([]), globalDesignJson: "not-json" }).backgroundColor).toBe("#f6f7fb");
+    expect(getGlobalLandingpageDesign({ ...template([]), globalDesignJson: "not-json" }).backgroundColor).toBe("#F6F8FB");
   });
 });

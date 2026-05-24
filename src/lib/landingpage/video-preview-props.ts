@@ -11,6 +11,7 @@ export type VideoPreviewProps = {
   borderRadius?: number | string;
   aspectRatio?: string;
   maxWidth?: string | number;
+  maxHeight?: string | number;
   width?: string | number;
   height?: string | number;
   align?: "left" | "center" | "right";

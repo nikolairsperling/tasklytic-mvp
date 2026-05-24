@@ -10,7 +10,7 @@ import { Sidebar } from "@/components/admin/shell/sidebar";
 import { Topbar } from "@/components/admin/shell/topbar";
 import { FetchDiagnostics } from "@/components/admin/system/fetch-diagnostics";
 import type { DesignSettingsPayload, ThemeMode } from "@/lib/app-settings";
-import { applyThemeToDocument, getSystemTheme, isThemeMode, readStoredTheme, resolveEffectiveTheme, storeThemeMode } from "@/lib/admin-theme";
+import { applyThemeToDocument, clearThemeFromDocument, getSystemTheme, isThemeMode, readStoredTheme, resolveEffectiveTheme, storeThemeMode } from "@/lib/admin-theme";
 import { fontStack } from "@/lib/fonts";
 
 const bottomItems = [
@@ -111,8 +111,8 @@ function AdminShellFallback() {
 
 function AdminShellContent({ children }: { children: ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [themeMode, setThemeMode] = useState<ThemeMode>(() => readStoredTheme() ?? "system");
-  const [systemTheme, setSystemTheme] = useState<"light" | "dark">(() => getSystemTheme());
+  const [themeMode, setThemeMode] = useState<ThemeMode>("system");
+  const [systemTheme, setSystemTheme] = useState<"light" | "dark">("light");
   const [designSettings, setDesignSettings] = useState<DesignSettingsPayload | null>(null);
   const pathname = usePathname();
   const isBuilderRoute = pathname.includes("/admin/landingpages/builder") || pathname.includes("/admin/landingpages/templates/") && pathname.includes("/builder");
@@ -120,12 +120,15 @@ function AdminShellContent({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     applyThemeToDocument(effectiveTheme, themeMode);
+    return () => clearThemeFromDocument();
   }, [effectiveTheme, themeMode]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
     const media = window.matchMedia("(prefers-color-scheme: dark)");
-    const update = () => setSystemTheme(media.matches ? "dark" : "light");
+    const storedTheme = readStoredTheme();
+    if (storedTheme) setThemeMode(storedTheme);
+    const update = () => setSystemTheme(getSystemTheme());
     update();
     media.addEventListener("change", update);
     return () => media.removeEventListener("change", update);

@@ -1,12 +1,15 @@
 "use client";
 
 import type { LandingpageTemplate, Prospect, VideoAsset } from "@prisma/client";
-import { ArrowDown, ArrowUp, Bold, ChevronLeft, ChevronRight, Copy, Eye, FileText, HelpCircle, Image as ImageIcon, Italic, Laptop, LayoutTemplate, Link as LinkIcon, MoreHorizontal, MousePointerClick, Navigation, Pencil, Plus, Save, Smartphone, Sparkles, SquarePlay, Strikethrough, Tablet, Trash2, Type, Underline, X } from "lucide-react";
+import { Bold, ChevronLeft, ChevronRight, Eye, FileText, HelpCircle, Image as ImageIcon, Italic, Laptop, LayoutTemplate, Link as LinkIcon, MousePointerClick, Navigation, Plus, Save, Smartphone, Sparkles, SquarePlay, Strikethrough, Tablet, Type, Underline, X } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, useTransition, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition, type CSSProperties, type ReactNode } from "react";
 import { AssetFilePicker } from "@/components/admin/asset-file-picker";
+import { EditorControlLayer, SelectedElementOverlay } from "@/components/admin/editor-control-layer";
 import { VideoAssetPicker } from "@/components/admin/video-asset-picker";
 import { VideoPreview } from "@/components/landing/video-preview";
+import { headerLogoCompatibilityPatch, resolveHeaderLogo } from "@/lib/landingpage-logo";
+import { backgroundStyleFromSettings, cssLength, elementStyleToCss, responsiveStyle, textAlignValue as styleTextAlignValue } from "@/lib/landingpage-style";
 import { videoPreviewPropsFromSettings } from "@/lib/landingpage/video-preview-props";
 import {
   buildSavePayload,
@@ -128,7 +131,7 @@ export function VisualLandingpageTemplateEditor({
   const [aiPreview, setAiPreview] = useState<Record<string, string> | null>(null);
   const [previewProspectId, setPreviewProspectId] = useState(prospects[0]?.id ?? "");
   const [editing, setEditing] = useState<{ sectionId: string; field: EditingField } | null>(null);
-  const [activeElement, setActiveElement] = useState<ActiveBuilderElement | null>(normalizedInitialSections[0] ? { sectionId: normalizedInitialSections[0].id, kind: "section" } : null);
+  const [activeElement, setActiveElement] = useState<ActiveBuilderElement | null>(null);
   const [leftPanelCollapsed, setLeftPanelCollapsed] = useStoredBoolean("builderLeftPanelCollapsed", false);
   const [rightPanelCollapsed, setRightPanelCollapsed] = useStoredBoolean("builderRightPanelCollapsedInline", true);
   const [inlinePopup, setInlinePopup] = useState<InlinePopupMode>(null);
@@ -154,6 +157,10 @@ export function VisualLandingpageTemplateEditor({
   }, [elementQuery]);
   const activeElementStyle = useMemo(() => getActiveElementStyle(sections, activeElement), [activeElement, sections]);
   const dirty = editorSnapshot(sections, globalDesign, addressForm) !== savedSnapshot;
+  const activeSectionIndex = activeSection ? sections.findIndex((section) => section.id === activeSection.id) : -1;
+  const selectedLabel = activeSection && activeElement ? elementSelectionLabel(activeSection, activeElement) : "";
+  const selectedDetail = activeSection && activeElement ? sectionNames[activeSection.type] : undefined;
+  const selectedAnchorKey = activeElement ? activeElementTreeKey(activeElement) : undefined;
 
   function replaceSections(next: LandingpageSection[]) {
     const ordered = next.map((section, index) => ({ ...section, order: index + 1 }));
@@ -168,7 +175,8 @@ export function VisualLandingpageTemplateEditor({
   function patchSettings(sectionId: string, patch: Partial<LandingpageSectionSettings>) {
     const target = sections.find((section) => section.id === sectionId);
     if (!target) return;
-    setSections(updateLandingpageSection(sections, sectionId, { settings: { ...target.settings, ...patch } }));
+    const nextPatch = headerLogoCompatibilityPatch(patch);
+    setSections(updateLandingpageSection(sections, sectionId, { settings: { ...target.settings, ...nextPatch } }));
   }
 
   function selectElement(element: ActiveBuilderElement) {
@@ -184,18 +192,44 @@ export function VisualLandingpageTemplateEditor({
     setInlinePopup("settings");
   }
 
+  function editActiveSelection() {
+    if (!activeElement || !activeSection) return;
+    if (activeElement.kind === "section") {
+      setInlinePopup(null);
+      setRightPanelCollapsed(false);
+      return;
+    }
+    if (activeElement.kind === "video") {
+      setInlinePopup(null);
+      setRightPanelCollapsed(false);
+      return;
+    }
+    openElementPopup(activeElement);
+  }
+
+  function openActiveSettings() {
+    if (!activeSection) return;
+    setRightPanelCollapsed(false);
+    if (activeElement && activeElement.kind !== "section" && activeElement.kind !== "video") {
+      setInlinePopup("settings");
+      return;
+    }
+    setInlinePopup(null);
+  }
+
+  function clearCanvasSelection() {
+    setActiveElement(null);
+    setInlinePopup(null);
+  }
+
 function patchActiveElement(patch: Partial<LandingpageSectionSettings>) {
   if (!activeElement) return;
-  if ("buttonColor" in patch || "buttonTextColor" in patch || "videoBackgroundColor" in patch) {
-    console.log("color change", activeElement.elementId ?? activeElement.field ?? activeElement.sectionId, patch.buttonColor ?? patch.buttonTextColor ?? patch.videoBackgroundColor);
-  }
-  console.log("update element", activeElement.elementId ?? activeElement.field ?? activeElement.sectionId, patch);
-  setSections((current) => patchBuilderElement(current, activeElement, patch));
+  const nextPatch = headerLogoCompatibilityPatch(patch);
+  setSections((current) => patchBuilderElement(current, activeElement, nextPatch));
 }
 
   function patchActiveVideoElement(patch: Partial<LandingpageSectionSettings>) {
     if (!activeElement) return;
-    console.log("update element", activeElement.elementId ?? activeElement.field ?? activeElement.sectionId, patch);
     const next = patchBuilderElement(sections, activeElement, patch);
     setSections(next);
     if ("videoUrl" in patch || "videoAssetId" in patch) {
@@ -205,24 +239,13 @@ function patchActiveElement(patch: Partial<LandingpageSectionSettings>) {
 
 function patchActiveElementStyle(patch: BuilderElementStyle) {
   if (!activeElement) return;
-  if ("color" in patch || "backgroundColor" in patch) {
-    console.log("color change", activeElement.elementId ?? activeElement.field ?? activeElement.sectionId, patch.color ?? patch.backgroundColor);
-  }
-  console.log("update element", activeElement.elementId ?? activeElement.field ?? activeElement.sectionId, patch);
-  setSections((current) => patchBuilderElementStyle(current, activeElement, patch));
+  setSections((current) => patchBuilderElementStyle(current, resolveBuilderElement(current, activeElement), patch));
 }
 
   function patchActiveText(value: string) {
     if (!activeElement) return;
     setSections((current) => {
       const resolved = resolveBuilderElement(current, activeElement);
-      const section = current.find((item) => item.id === resolved.sectionId);
-      const selectedElement = section ? findBuilderElementForActive(section, resolved) : undefined;
-      console.log("TEXT CHANGE", {
-        selectedElementId: resolved.elementId ?? resolved.field ?? resolved.sectionId,
-        oldText: selectedElement?.props?.text,
-        newText: value
-      });
       return patchBuilderText(current, resolved, value);
     });
   }
@@ -230,13 +253,6 @@ function patchActiveElementStyle(patch: BuilderElementStyle) {
   function patchElementText(element: ActiveBuilderElement, value: string) {
     setSections((current) => {
       const resolved = resolveBuilderElement(current, element);
-      const section = current.find((item) => item.id === resolved.sectionId);
-      const selectedElement = section ? findBuilderElementForActive(section, resolved) : undefined;
-      console.log("TEXT CHANGE", {
-        selectedElementId: resolved.elementId ?? resolved.field ?? resolved.sectionId,
-        oldText: selectedElement?.props?.text,
-        newText: value
-      });
       return patchBuilderText(current, resolved, value);
     });
   }
@@ -350,7 +366,6 @@ function patchActiveElementStyle(patch: BuilderElementStyle) {
     startTransition(async () => {
       const legacy = deriveLegacyPayload(nextSections, globalDesign);
       const payload = buildSavePayload(template, nextSections, globalDesign, legacy, addressForm);
-      console.log("SAVE PAYLOAD ELEMENTS", nextSections);
       const response = await fetch(`/api/landingpage-templates/${template.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -420,10 +435,6 @@ function patchActiveElementStyle(patch: BuilderElementStyle) {
           <a
             href={`/admin/landingpages/templates/${template.id}/preview`}
             target="_blank"
-            onClick={() => {
-              const previewUrl = `/admin/landingpages/templates/${template.id}/preview`;
-              console.log("opening preview", { templateId: template.id, previewUrl });
-            }}
             className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-[var(--editor-border)] px-3 text-sm font-semibold hover:bg-[var(--editor-card-hover-bg)]"
           >
             <Eye className="h-4 w-4" /> <span className="hidden sm:inline">Vorschau öffnen</span>
@@ -434,21 +445,24 @@ function patchActiveElementStyle(patch: BuilderElementStyle) {
         </div>
       </div>
       <div className={`grid h-[calc(100vh-64px)] min-h-0 flex-1 grid-cols-1 gap-4 overflow-hidden p-4 lg:grid-cols-[var(--builder-left)_minmax(0,1fr)_var(--builder-right)] ${builderGridVars(leftPanelCollapsed, rightPanelCollapsed)}`}>
-        <aside className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-[var(--editor-border)] bg-[var(--editor-sidebar-bg)] p-4 text-[var(--editor-text)]">
+        <aside className={`flex h-full min-h-0 flex-col rounded-2xl border border-[var(--editor-border)] bg-[var(--editor-sidebar-bg)] text-[var(--editor-text)] shadow-sm transition-[width,padding] duration-200 ${leftPanelCollapsed ? "items-center overflow-visible px-2 py-3" : "overflow-hidden p-4"}`}>
           <div className={`flex items-center ${leftPanelCollapsed ? "justify-center" : "justify-between"} gap-3 px-1 py-2`}>
             {leftPanelCollapsed ? null : <h2 className="text-lg font-semibold">Vorlage bearbeiten</h2>}
-            <button type="button" onClick={() => setLeftPanelCollapsed(!leftPanelCollapsed)} className="grid h-10 w-10 place-items-center rounded-xl bg-[var(--editor-card-bg)] text-[var(--editor-text)] hover:bg-[var(--editor-card-hover-bg)]" aria-label="Sidebar einklappen">
-              {leftPanelCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+            <button type="button" onClick={() => setLeftPanelCollapsed(!leftPanelCollapsed)} className="group relative grid h-10 w-10 place-items-center rounded-2xl bg-[var(--editor-card-bg)] text-[var(--editor-text)] shadow-sm transition hover:bg-[var(--editor-card-hover-bg)]" aria-label={leftPanelCollapsed ? "Sidebar ausklappen" : "Sidebar einklappen"}>
+              {leftPanelCollapsed ? <ChevronRight className="h-5 w-5" /> : <ChevronLeft className="h-5 w-5" />}
+              {leftPanelCollapsed ? <Tooltip label="Ausklappen" /> : null}
             </button>
           </div>
           {leftPanelCollapsed ? (
-            <div ref={leftSidebarScrollRef} className="mt-5 grid min-h-0 flex-1 gap-2 overflow-y-auto pb-24">
+            <div ref={leftSidebarScrollRef} className="mt-4 grid min-h-0 flex-1 content-start gap-2 overflow-y-auto overflow-x-visible px-1 pb-5">
               {visibleBuilderSections(sections).map((section) => (
-                <button key={section.id} type="button" data-builder-tree-key={`${section.id}-section`} title={sectionNames[section.type]} onClick={() => selectElement({ sectionId: section.id, kind: "section" })} className={`grid h-11 w-11 place-items-center rounded-xl ${section.id === activeId ? "bg-[var(--editor-active-bg)] text-[var(--editor-active-text)]" : "bg-[var(--editor-card-bg)] text-[var(--editor-muted-text)] hover:bg-[var(--editor-card-hover-bg)]"}`}>
+                <CollapsedSidebarButton key={section.id} label={sectionNames[section.type]} active={section.id === activeId} onClick={() => selectElement({ sectionId: section.id, kind: "section" })} treeKey={`${section.id}-section`}>
                   {sectionIcon(section.type)}
-                </button>
+                </CollapsedSidebarButton>
               ))}
-              <button type="button" onClick={() => setAddModalOpen(true)} className="grid h-11 w-11 place-items-center rounded-xl bg-[var(--editor-active-bg)] text-[var(--editor-active-text)]"><Plus className="h-4 w-4" /></button>
+              <CollapsedSidebarButton label="Element hinzufügen" active onClick={() => setAddModalOpen(true)}>
+                <Plus className="h-5 w-5" />
+              </CollapsedSidebarButton>
             </div>
           ) : (
             <div ref={leftSidebarScrollRef} className="mt-5 min-h-0 flex-1 overflow-y-auto pr-1 pb-24">
@@ -464,12 +478,6 @@ function patchActiveElementStyle(patch: BuilderElementStyle) {
                     }}
                     onDragStart={() => setDraggedSectionId(section.id)}
                     onDrop={() => reorderSection(section.id)}
-                    onMoveUp={() => replaceSections(moveLandingpageSection(sections, section.id, "up"))}
-                    onMoveDown={() => replaceSections(moveLandingpageSection(sections, section.id, "down"))}
-                    onDuplicate={() => duplicateSection(section)}
-                    onDelete={() => {
-                      if (window.confirm(`${sectionNames[section.type]} wirklich löschen?`)) replaceSections(deleteLandingpageSection(sections, section.id));
-                    }}
                   />
                 ))}
               </div>
@@ -490,6 +498,23 @@ function patchActiveElementStyle(patch: BuilderElementStyle) {
           />
           {message ? <div className="mx-5 mt-4 rounded-xl border border-emerald-400/30 bg-emerald-400/10 px-4 py-3 text-sm font-medium text-emerald-100">{message}</div> : null}
           <div className="relative min-h-0 flex-1 overflow-auto px-4 py-6 pb-24 lg:px-6">
+            {activeElement && activeSection ? (
+              <EditorControlLayer
+                title={selectedLabel}
+                detail={selectedDetail}
+                anchorKey={selectedAnchorKey}
+                onEdit={editActiveSelection}
+                onSettings={openActiveSettings}
+                onDuplicate={duplicateActiveElement}
+                onDelete={deleteActiveElement}
+                onMoveUp={() => moveSectionById(activeSection.id, "up")}
+                onMoveDown={() => moveSectionById(activeSection.id, "down")}
+                canMoveUp={activeSectionIndex > 0}
+                canMoveDown={activeSectionIndex >= 0 && activeSectionIndex < sections.length - 1}
+                canDuplicate={Boolean(activeElement)}
+                canDelete={Boolean(activeElement)}
+              />
+            ) : null}
             {activeElement?.kind === "text" && activeElement.field ? (
               <FloatingTextToolbar
                 style={activeElementStyle}
@@ -538,6 +563,7 @@ function patchActiveElementStyle(patch: BuilderElementStyle) {
               onDuplicate={duplicateActiveElement}
               onDelete={deleteActiveElement}
               onMove={moveSectionById}
+              onClearSelection={clearCanvasSelection}
               onSelect={(sectionId) => selectElement({ sectionId, kind: "section" })}
               onPatchSettings={patchSettings}
               onPatchElementText={patchElementText}
@@ -564,13 +590,6 @@ function patchActiveElementStyle(patch: BuilderElementStyle) {
                   setAiPreview(null);
                 }}
                 onRejectAi={() => setAiPreview(null)}
-                onDelete={() => {
-                  if (!activeSection || !window.confirm(`${sectionNames[activeSection.type]} wirklich löschen?`)) return;
-                  replaceSections(deleteLandingpageSection(sections, activeSection.id));
-                }}
-                onDuplicate={() => activeSection ? duplicateSection(activeSection) : undefined}
-                onMoveDown={() => activeSection ? replaceSections(moveLandingpageSection(sections, activeSection.id, "down")) : undefined}
-                onMoveUp={() => activeSection ? replaceSections(moveLandingpageSection(sections, activeSection.id, "up")) : undefined}
                 onElementSettingsChange={patchActiveElement}
                 onElementStyleChange={patchActiveElementStyle}
                 onElementTextChange={patchActiveText}
@@ -687,117 +706,27 @@ function BuilderElementTile({ element, onAdd }: { element: { label: string; type
   );
 }
 
-function SectionListItem({
-  section,
-  index,
-  active,
-  onDragStart,
-  onDrop,
-  onSelect,
-  onMoveUp,
-  onMoveDown,
-  onDuplicate,
-  onDelete
-}: {
-  section: LandingpageSection;
-  index: number;
-  active: boolean;
-  onDragStart: () => void;
-  onDrop: () => void;
-  onSelect: () => void;
-  onMoveUp: () => void;
-  onMoveDown: () => void;
-  onDuplicate: () => void;
-  onDelete: () => void;
-}) {
+function CollapsedSidebarButton({ label, active, treeKey, onClick, children }: { label: string; active?: boolean; treeKey?: string; onClick: () => void; children: ReactNode }) {
   return (
-    <div
-      draggable
-      onDragStart={onDragStart}
-      onDragOver={(event) => event.preventDefault()}
-      onDrop={onDrop}
-      className={`group rounded-xl border p-2 transition ${active ? "border-[var(--editor-active-bg)] bg-[var(--editor-active-bg)]/15" : "border-[var(--editor-border)] bg-[var(--editor-card-bg)] hover:bg-[var(--editor-card-hover-bg)]"}`}
+    <button
+      type="button"
+      data-builder-tree-key={treeKey}
+      title={label}
+      onClick={onClick}
+      className={`group relative grid h-12 w-12 place-items-center rounded-2xl transition ${active ? "bg-[var(--editor-active-bg)] text-[var(--editor-active-text)] shadow-sm" : "bg-[var(--editor-card-bg)] text-[var(--editor-muted-text)] hover:bg-blue-50 hover:text-[#4f46e5]"}`}
+      aria-label={label}
     >
-      <div className="flex items-center gap-2">
-        <button type="button" onClick={onSelect} className="flex min-w-0 flex-1 items-center gap-3 rounded-lg px-1 py-1 text-left">
-          <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg text-xs font-bold ${active ? "bg-[var(--editor-active-bg)] text-[var(--editor-active-text)]" : "bg-[var(--editor-card-bg)] text-[var(--editor-muted-text)]"}`}>{index + 1}</span>
-          <span className="min-w-0">
-            <span className="block truncate text-sm font-semibold text-[var(--editor-text)]">{sectionNames[section.type]}</span>
-            <span className="text-xs text-[var(--editor-muted-text)]">{section.enabled ? "aktiv" : "inaktiv"}</span>
-          </span>
-        </button>
-        <TreeActionMenu onMoveUp={onMoveUp} onMoveDown={onMoveDown} onDuplicate={onDuplicate} onDelete={onDelete} />
-      </div>
-    </div>
+      <span className="grid h-6 w-6 place-items-center [&>svg]:h-5 [&>svg]:w-5">{children}</span>
+      <Tooltip label={label} />
+    </button>
   );
 }
 
-function TreeActionMenu({ onMoveUp, onMoveDown, onDuplicate, onDelete }: { onMoveUp: () => void; onMoveDown: () => void; onDuplicate: () => void; onDelete: () => void }) {
-  const buttonRef = useRef<HTMLButtonElement | null>(null);
-  const [open, setOpen] = useState(false);
-  const [position, setPosition] = useState<CSSProperties>({});
-
-  useLayoutEffect(() => {
-    if (!open) return undefined;
-    function updatePosition() {
-      const rect = buttonRef.current?.getBoundingClientRect();
-      if (!rect) return;
-      const preferredLeft = rect.right + 8;
-      const maxLeft = window.innerWidth - 188;
-      setPosition({
-        position: "fixed",
-        left: Math.max(8, Math.min(preferredLeft, maxLeft)),
-        top: Math.min(rect.top, window.innerHeight - 178)
-      });
-    }
-    function close() {
-      setOpen(false);
-    }
-    updatePosition();
-    window.addEventListener("resize", updatePosition);
-    window.addEventListener("scroll", updatePosition, true);
-    window.addEventListener("click", close);
-    return () => {
-      window.removeEventListener("resize", updatePosition);
-      window.removeEventListener("scroll", updatePosition, true);
-      window.removeEventListener("click", close);
-    };
-  }, [open]);
-
-  const run = (action: () => void) => {
-    setOpen(false);
-    action();
-  };
-
+function Tooltip({ label }: { label: string }) {
   return (
-    <div className="shrink-0">
-      <button
-        ref={buttonRef}
-        type="button"
-        aria-haspopup="menu"
-        aria-expanded={open}
-        onClick={(event) => {
-          event.stopPropagation();
-          setOpen((current) => !current);
-        }}
-        className="grid h-8 w-8 cursor-pointer place-items-center rounded-lg text-[var(--editor-muted-text)] hover:bg-[var(--editor-card-hover-bg)]"
-      >
-        <MoreHorizontal className="h-4 w-4" />
-      </button>
-      {open ? (
-        <div
-          role="menu"
-          style={position}
-          onClick={(event) => event.stopPropagation()}
-          className="menu z-[9999] min-w-[180px] whitespace-nowrap rounded-xl border border-[var(--editor-border)] bg-[var(--editor-menu-bg)] p-1 shadow-xl"
-        >
-          <MenuButton onClick={() => run(onMoveUp)}>Nach oben</MenuButton>
-          <MenuButton onClick={() => run(onMoveDown)}>Nach unten</MenuButton>
-          <MenuButton onClick={() => run(onDuplicate)}>Duplizieren</MenuButton>
-          <MenuButton onClick={() => run(onDelete)} danger>Löschen</MenuButton>
-        </div>
-      ) : null}
-    </div>
+    <span className="pointer-events-none absolute left-[calc(100%+10px)] top-1/2 z-50 hidden -translate-y-1/2 whitespace-nowrap rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 opacity-0 shadow-lg transition group-hover:block group-hover:opacity-100">
+      {label}
+    </span>
   );
 }
 
@@ -806,21 +735,13 @@ function ElementTreeSection({
   activeElement,
   onSelect,
   onDragStart,
-  onDrop,
-  onMoveUp,
-  onMoveDown,
-  onDuplicate,
-  onDelete
+  onDrop
 }: {
   section: LandingpageSection;
   activeElement: ActiveBuilderElement | null;
   onSelect: (element: ActiveBuilderElement) => void;
   onDragStart: () => void;
   onDrop: () => void;
-  onMoveUp: () => void;
-  onMoveDown: () => void;
-  onDuplicate: () => void;
-  onDelete: () => void;
 }) {
   const sectionElement: ActiveBuilderElement = { sectionId: section.id, kind: "section" };
   const items = elementTreeItems(section);
@@ -841,7 +762,6 @@ function ElementTreeSection({
             <span className="block truncate text-xs text-[var(--editor-muted-text)]">{section.enabled ? "Section" : "Section, inaktiv"}</span>
           </span>
         </button>
-        <TreeActionMenu onMoveUp={onMoveUp} onMoveDown={onMoveDown} onDuplicate={onDuplicate} onDelete={onDelete} />
       </div>
       <div className="ml-5 mt-1 grid gap-1 border-l border-[var(--editor-border)] pl-3">
         {items.map((item) => (
@@ -878,6 +798,7 @@ function PreviewCanvas({
   onDuplicate,
   onDelete,
   onMove,
+  onClearSelection,
   onPatchElementText,
   onPatchSettings,
   onSelect
@@ -895,6 +816,7 @@ function PreviewCanvas({
   onDuplicate: () => void;
   onDelete: () => void;
   onMove: (sectionId: string, direction: "up" | "down") => void;
+  onClearSelection: () => void;
   onPatchElementText: (element: ActiveBuilderElement, value: string) => void;
   onPatchSettings: (sectionId: string, patch: Partial<LandingpageSectionSettings>) => void;
   onSelect: (sectionId: string) => void;
@@ -902,7 +824,7 @@ function PreviewCanvas({
   const width = devicePreviewWidth(device);
   const selectedSection = sections.find((section) => section.id === activeId);
   return (
-    <div className="min-h-[520px] overflow-x-auto rounded-[28px] bg-[#dfe4ed] p-4 shadow-inner transition sm:min-h-[680px] sm:p-8">
+    <div className="min-h-[520px] overflow-x-auto rounded-[28px] bg-[#dfe4ed] p-4 shadow-inner transition sm:min-h-[680px] sm:p-8" onClick={onClearSelection}>
       <div className="mx-auto mb-4 flex min-w-0 items-center justify-between gap-3 rounded-2xl bg-white px-3 py-2 text-xs font-semibold text-slate-500 shadow-sm" style={{ maxWidth: width }}>
         <span className="min-w-0 truncate">
           {selectedSection ? `${sectionNames[selectedSection.type]} ausgewählt` : "Element anklicken zum Bearbeiten"}
@@ -917,7 +839,7 @@ function PreviewCanvas({
               <CanvasSection
                 key={section.id}
                 section={section}
-                active={activeId === section.id}
+                active={activeElement?.kind === "section" && activeId === section.id}
                 activeElement={activeElement}
                 device={device}
                 editing={editing}
@@ -975,7 +897,7 @@ function CanvasSection({
   const settings = section.settings;
   const responsive = section.responsive?.[device] ?? settings.style?.[device] ?? {};
   const style = {
-    backgroundColor: settings.backgroundColor || "white",
+    ...backgroundStyleFromSettings(settings, settings.backgroundColor || "white"),
     color: settings.textColor || globalDesign.textColor,
     paddingTop: Number(responsive.paddingTop ?? settings.paddingTop ?? settings.spacingTop ?? (section.type === "header" ? 0 : 56)),
     paddingBottom: Number(responsive.paddingBottom ?? settings.paddingBottom ?? settings.spacingBottom ?? (section.type === "header" ? 0 : 56)),
@@ -993,8 +915,7 @@ function CanvasSection({
   const hidden = (device === "desktop" && settings.visibleDesktop === false) || (device === "tablet" && settings.visibleTablet === false) || (device === "mobile" && settings.visibleMobile === false);
 
   return (
-    <section onClick={() => onSelect(section.id)} className={`relative outline outline-1 outline-offset-0 ${hidden ? "opacity-35" : ""} ${active && activeElement?.kind === "section" ? "outline-2 outline-offset-[3px] outline-[#4f46e5]" : "outline-transparent hover:outline-[#93c5fd]"}`} style={style}>
-      {active && activeElement?.kind === "section" ? <SelectionLabel label={elementSelectionLabel(section, activeElement)} /> : null}
+    <SelectedElementOverlay active={active} anchorKey={active ? activeElementTreeKey({ sectionId: section.id, kind: "section" }) : undefined} hidden={hidden} onClick={() => onSelect(section.id)} style={style}>
       {section.type === "header" ? <HeaderSection section={section} activeElement={activeElement} globalDesign={globalDesign} onEdit={onEdit} onOpenPopup={onOpenPopup} onDuplicate={onDuplicate} onDelete={onDelete} onMove={onMove} onPatchSettings={onPatchSettings} onInlineChange={(field, value) => onPatchElementText({ sectionId: section.id, field, kind: field === "headerCtaText" ? "button" : "text", elementId: findBuilderElementByField(section, field)?.id }, value)} device={device} /> : null}
       {section.type === "hero" ? <HeroSection section={section} activeElement={activeElement} globalDesign={globalDesign} onEdit={onEdit} onOpenPopup={onOpenPopup} onDuplicate={onDuplicate} onDelete={onDelete} onMove={onMove} onPatchSettings={onPatchSettings} onInlineChange={(field, value) => onPatchElementText({ sectionId: section.id, field, kind: field === "ctaText" ? "button" : "text", elementId: findBuilderElementByField(section, field)?.id }, value)} device={device} /> : null}
       {section.type === "explainer_video" ? <ExplainerSection section={section} activeElement={activeElement} globalDesign={globalDesign} onEdit={onEdit} onOpenPopup={onOpenPopup} onDuplicate={onDuplicate} onDelete={onDelete} onMove={onMove} onPatchSettings={onPatchSettings} onInlineChange={(field, value) => onPatchElementText({ sectionId: section.id, field, kind: field === "ctaText" ? "button" : "text", elementId: findBuilderElementByField(section, field)?.id }, value)} /> : null}
@@ -1002,27 +923,34 @@ function CanvasSection({
       {section.type === "cta" || section.type === "cta_button" ? <CtaSection section={section} activeElement={activeElement} globalDesign={globalDesign} onEdit={onEdit} onOpenPopup={onOpenPopup} onDuplicate={onDuplicate} onDelete={onDelete} onMove={onMove} onPatchSettings={onPatchSettings} onInlineChange={(field, value) => onPatchElementText({ sectionId: section.id, field, kind: field === "ctaText" ? "button" : "text", elementId: findBuilderElementByField(section, field)?.id }, value)} /> : null}
       {section.type === "image" || section.type === "video" || section.type === "benefits" || section.type === "divider" || section.type === "spacer" ? <ElementSection section={section} activeElement={activeElement} globalDesign={globalDesign} onEdit={onEdit} onOpenPopup={onOpenPopup} onDuplicate={onDuplicate} onDelete={onDelete} onMove={onMove} onPatchSettings={onPatchSettings} onInlineChange={(field, value) => onPatchElementText({ sectionId: section.id, field, kind: "text", elementId: findBuilderElementByField(section, field)?.id }, value)} device={device} /> : null}
       {section.type === "approach" || section.type === "faq" || section.type === "textblock" || section.type === "footer" ? <SimpleSection section={section} activeElement={activeElement} globalDesign={globalDesign} device={device} onEdit={onEdit} onOpenPopup={onOpenPopup} onDuplicate={onDuplicate} onDelete={onDelete} onMove={onMove} onPatchSettings={onPatchSettings} onPatchElementText={onPatchElementText} onInlineChange={(field, value) => onPatchElementText({ sectionId: section.id, field, kind: field === "ctaText" ? "button" : "text", elementId: findBuilderElementByField(section, field)?.id }, value)} /> : null}
-    </section>
+    </SelectedElementOverlay>
   );
-}
-
-function SelectionLabel({ label }: { label: string }) {
-  return <span className="absolute right-3 top-3 z-10 rounded-md bg-[#2563eb] px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-white shadow-sm">{label}</span>;
 }
 
 function HeaderSection({ section, activeElement, globalDesign, onEdit, onOpenPopup, onDuplicate, onDelete, onMove, onInlineChange, device }: CanvasChildProps & { device: Device }) {
   const settings = section.settings;
   const centered = settings.headerLogoPosition === "center" || settings.headerAlignment === "center";
   const justify = centered ? "justify-center" : settings.headerAlignment === "right" ? "justify-end" : "justify-between";
-  const logoWidth = Number(settings.headerLogoWidth || 140);
-  const logoHeight = Number(settings.headerLogoHeight || 0);
+  const logo = resolveHeaderLogo(settings);
   const headerButtonSelected = isActiveButton(activeElement, section.id, "headerCtaText");
-  const logoElement: ActiveBuilderElement = { sectionId: section.id, field: "headerLogoUrl", kind: "link", elementId: findBuilderElementByField(section, "headerLogoUrl")?.id };
+  const logoElement: ActiveBuilderElement = {
+    sectionId: section.id,
+    field: "logoText",
+    kind: "logo",
+    elementId: findBuilderElementByField(section, "logoText")?.id ?? findBuilderElementByField(section, "headerLogoUrl")?.id
+  };
   return (
     <div className={`mx-auto flex max-w-6xl ${device === "mobile" ? "flex-wrap gap-3 py-3" : "items-center gap-6 py-5"} ${justify}`}>
       <ElementChrome selected={isSameElement(activeElement, logoElement)} element={logoElement} onEdit={onEdit} onOpenPopup={onOpenPopup} onDuplicate={onDuplicate} onDelete={onDelete} onMove={onMove}>
-        <button type="button" onClick={(event) => { event.stopPropagation(); onEdit(section.id, "headerLogoUrl", "link"); }} className="text-left text-xl font-bold text-slate-950 outline-none focus-visible:ring-2 focus-visible:ring-[#6556ff]">
-          {settings.headerLogoUrl || settings.logoUrl ? <img src={settings.headerLogoUrl || settings.logoUrl} alt={settings.headerLogoAlt || "Logo"} className="max-h-10 w-auto object-contain" style={{ width: logoWidth || undefined, height: logoHeight || undefined }} /> : settings.headerShowTextFallback === false ? null : settings.headerTextFallback || "Tasklytic"}
+        <button type="button" onClick={(event) => { event.stopPropagation(); onEdit(section.id, "logoText", "logo"); }} className="text-left text-xl font-bold text-slate-950 outline-none focus-visible:ring-2 focus-visible:ring-[#6556ff]">
+          {logo.type === "image" && logo.imageUrl ? (
+            <img
+              src={logo.imageUrl}
+              alt={logo.alt}
+              className="block max-h-10 max-w-[210px] object-contain"
+              style={{ width: logoCssSize(logo.width), height: logoCssSize(logo.height) }}
+            />
+          ) : settings.headerShowTextFallback === false ? null : logo.text}
         </button>
       </ElementChrome>
       <nav className={`${device === "mobile" ? "hidden" : "hidden items-center gap-6 text-sm font-medium text-slate-600 md:flex"}`}>
@@ -1095,8 +1023,8 @@ function ComparisonSection({ section, activeElement, globalDesign, onEdit, onOpe
       <EditableText section={section} activeElement={activeElement} field="headline" className={`${device === "mobile" ? "text-2xl" : "text-4xl"} font-semibold text-slate-950`} onEdit={onEdit} onOpenPopup={onOpenPopup} onDuplicate={onDuplicate} onDelete={onDelete} onMove={onMove} onInlineChange={onInlineChange}>{settings.headline}</EditableText>
       {settings.subheadline ? <EditableText section={section} activeElement={activeElement} field="subheadline" className="mt-3 text-lg leading-7 text-slate-600" onEdit={onEdit} onOpenPopup={onOpenPopup} onDuplicate={onDuplicate} onDelete={onDelete} onMove={onMove} onInlineChange={onInlineChange}>{settings.subheadline}</EditableText> : null}
       <div className={`mt-7 grid gap-5 ${device === "mobile" ? "" : "md:grid-cols-2"}`}>
-        <CompareCard section={section} activeElement={activeElement} listName="leftItems" title={settings.leftTitle || "Vorher"} tone="bad" items={beforeItems} globalDesign={globalDesign} onOpenPopup={onOpenPopup} onEdit={onEdit} onDuplicate={onDuplicate} onDeleteElement={onDelete} onMove={onMove} onAdd={() => onPatchSettings(section.id, { leftItems: [...beforeItems, "Neuer Punkt"], beforeItems: [...beforeItems, "Neuer Punkt"] })} onDelete={(index) => onPatchSettings(section.id, { leftItems: beforeItems.filter((_, itemIndex) => itemIndex !== index), beforeItems: beforeItems.filter((_, itemIndex) => itemIndex !== index) })} onChange={(index, value) => onPatchSettings(section.id, { leftItems: beforeItems.map((item, itemIndex) => itemIndex === index ? value : item), beforeItems: beforeItems.map((item, itemIndex) => itemIndex === index ? value : item) })} />
-        <CompareCard section={section} activeElement={activeElement} listName="rightItems" title={settings.rightTitle || "Nachher"} tone="good" items={afterItems} globalDesign={globalDesign} onOpenPopup={onOpenPopup} onEdit={onEdit} onDuplicate={onDuplicate} onDeleteElement={onDelete} onMove={onMove} onAdd={() => onPatchSettings(section.id, { rightItems: [...afterItems, "Neuer Punkt"], afterItems: [...afterItems, "Neuer Punkt"] })} onDelete={(index) => onPatchSettings(section.id, { rightItems: afterItems.filter((_, itemIndex) => itemIndex !== index), afterItems: afterItems.filter((_, itemIndex) => itemIndex !== index) })} onChange={(index, value) => onPatchSettings(section.id, { rightItems: afterItems.map((item, itemIndex) => itemIndex === index ? value : item), afterItems: afterItems.map((item, itemIndex) => itemIndex === index ? value : item) })} />
+        <CompareCard section={section} activeElement={activeElement} listName="leftItems" title={settings.leftTitle || "Vorher"} tone="bad" items={beforeItems} globalDesign={globalDesign} onOpenPopup={onOpenPopup} onEdit={onEdit} onDuplicate={onDuplicate} onDeleteElement={onDelete} onMove={onMove} onAdd={() => onPatchSettings(section.id, { leftItems: [...beforeItems, "Neuer Punkt"], beforeItems: [...beforeItems, "Neuer Punkt"] })} onChange={(index, value) => onPatchSettings(section.id, { leftItems: beforeItems.map((item, itemIndex) => itemIndex === index ? value : item), beforeItems: beforeItems.map((item, itemIndex) => itemIndex === index ? value : item) })} />
+        <CompareCard section={section} activeElement={activeElement} listName="rightItems" title={settings.rightTitle || "Nachher"} tone="good" items={afterItems} globalDesign={globalDesign} onOpenPopup={onOpenPopup} onEdit={onEdit} onDuplicate={onDuplicate} onDeleteElement={onDelete} onMove={onMove} onAdd={() => onPatchSettings(section.id, { rightItems: [...afterItems, "Neuer Punkt"], afterItems: [...afterItems, "Neuer Punkt"] })} onChange={(index, value) => onPatchSettings(section.id, { rightItems: afterItems.map((item, itemIndex) => itemIndex === index ? value : item), afterItems: afterItems.map((item, itemIndex) => itemIndex === index ? value : item) })} />
       </div>
     </div>
   );
@@ -1329,10 +1257,7 @@ function ElementChrome({
   element,
   children,
   onEdit,
-  onOpenPopup,
-  onDuplicate,
-  onDelete,
-  onMove
+  onOpenPopup
 }: {
   selected: boolean;
   element: ActiveBuilderElement;
@@ -1343,47 +1268,15 @@ function ElementChrome({
   onDelete: () => void;
   onMove: (sectionId: string, direction: "up" | "down") => void;
 }) {
-  const chromeRef = useRef<HTMLSpanElement | null>(null);
-  const [toolbarPlacement, setToolbarPlacement] = useState<"top" | "bottom">("top");
-
-  useLayoutEffect(() => {
-    if (!selected) return undefined;
-    function updatePlacement() {
-      const rect = chromeRef.current?.getBoundingClientRect();
-      if (!rect) return;
-      setToolbarPlacement(rect.top < 58 ? "bottom" : "top");
-    }
-    updatePlacement();
-    window.addEventListener("resize", updatePlacement);
-    window.addEventListener("scroll", updatePlacement, true);
-    return () => {
-      window.removeEventListener("resize", updatePlacement);
-      window.removeEventListener("scroll", updatePlacement, true);
-    };
-  }, [selected]);
-
   return (
-    <span ref={chromeRef} className={`group/element relative block rounded-[18px] ${selected ? "outline outline-2 outline-offset-[3px] outline-[#4f46e5]" : ""}`} onClick={(event) => {
+    <span data-builder-control-anchor={activeElementTreeKey(element)} className={`builder-element-frame ${selected ? "builder-element-frame-active" : ""}`} onClick={(event) => {
       event.stopPropagation();
       if (element.field) onEdit(element.sectionId, element.field, element.kind);
       else onOpenPopup(element);
     }}>
       {children}
-      {selected ? (
-        <span className={`pointer-events-none absolute right-0 z-50 inline-flex items-center gap-0.5 rounded-[10px] border border-slate-200 bg-white p-1 text-slate-700 shadow-xl ${toolbarPlacement === "top" ? "top-0 -translate-y-[calc(100%+10px)]" : "bottom-0 translate-y-[calc(100%+10px)]"}`}>
-          <InlineToolButton label="Bearbeiten" onClick={() => onOpenPopup(element)}><Pencil className="h-3.5 w-3.5" /></InlineToolButton>
-          <InlineToolButton label="Duplizieren" onClick={onDuplicate}><Copy className="h-3.5 w-3.5" /></InlineToolButton>
-          <InlineToolButton label="Löschen" onClick={onDelete}><Trash2 className="h-3.5 w-3.5" /></InlineToolButton>
-          <InlineToolButton label="Hoch" onClick={() => onMove(element.sectionId, "up")}><ArrowUp className="h-3.5 w-3.5" /></InlineToolButton>
-          <InlineToolButton label="Runter" onClick={() => onMove(element.sectionId, "down")}><ArrowDown className="h-3.5 w-3.5" /></InlineToolButton>
-        </span>
-      ) : null}
     </span>
   );
-}
-
-function InlineToolButton({ label, onClick, children }: { label: string; onClick: () => void; children: ReactNode }) {
-  return <button type="button" title={label} aria-label={label} onClick={(event) => { event.stopPropagation(); onClick(); }} className="pointer-events-auto grid h-7 w-7 place-items-center rounded-lg hover:bg-slate-100">{children}</button>;
 }
 
 function VideoBox({ settings, elementStyle }: { settings: LandingpageSectionSettings; elementStyle?: BuilderElementStyle; globalDesign: GlobalLandingpageDesign; label: string; large?: boolean }) {
@@ -1498,9 +1391,8 @@ function textAnimationClass(animation: BuilderElementStyle[string] | undefined) 
 
 function ButtonFrame({ selected, widthMode, children }: { selected: boolean; widthMode?: LandingpageSectionSettings["buttonWidthMode"]; children: ReactNode }) {
   return (
-    <span className={`relative inline-flex max-w-full ${widthMode === "full" ? "w-full" : ""} ${selected ? "rounded-[16px] outline outline-1 outline-offset-2 outline-[#2563eb]" : ""}`}>
+    <span className={`builder-element-frame inline-flex max-w-full ${widthMode === "full" ? "w-full" : ""} ${selected ? "builder-element-frame-active" : ""}`}>
       {children}
-      {selected ? <SelectionLabel label="Button" /> : null}
     </span>
   );
 }
@@ -1516,7 +1408,9 @@ function buttonInlineStyle(settings: LandingpageSectionSettings, globalDesign: G
   const fontSize = Number(elementStyle.fontSize ?? props.fontSize ?? settings.buttonFontSize ?? settings.style?.desktop?.buttonFontSize ?? 14);
   const marginTop = Number(settings.buttonMarginTop ?? 0);
   const marginBottom = Number(settings.buttonMarginBottom ?? 0);
+  const elementBackground = backgroundStyleFromSettings(elementStyle);
   return {
+    ...elementBackground,
     backgroundColor: styleStringOrUndefined(elementStyle.backgroundColor) || stringProp(props.backgroundColor) || settings.buttonColor || fallbackColor || globalDesign.buttonColor,
     color: styleStringOrUndefined(elementStyle.color) || stringProp(props.textColor) || settings.buttonTextColor || "#ffffff",
     width: styleWidth(elementStyle.width) ?? (widthMode === "full" ? "100%" : widthMode === "custom" && Number.isFinite(customWidth) ? customWidth : "auto"),
@@ -1544,43 +1438,21 @@ function buttonInlineStyle(settings: LandingpageSectionSettings, globalDesign: G
 }
 
 function textInlineStyle(settings: LandingpageSectionSettings, elementStyle: BuilderElementStyle | undefined, device: Device): CSSProperties {
-  const responsive = getResponsiveElementStyle(elementStyle, device);
-  const fontSize = Number(responsive.fontSize ?? elementStyle?.fontSize ?? settings.style?.[device]?.fontSize ?? settings.style?.desktop?.fontSize);
-  const fontWeight = Number(elementStyle?.fontWeight ?? settings.fontWeight);
-  const lineHeight = Number(elementStyle?.lineHeight ?? settings.lineHeight);
   return {
-    color: typeof elementStyle?.color === "string" ? elementStyle.color : settings.textColor || undefined,
-    fontFamily: typeof elementStyle?.fontFamily === "string" ? elementStyle.fontFamily : settings.fontFamily || undefined,
-    fontSize: Number.isFinite(fontSize) ? fontSize : undefined,
-    fontWeight: Number.isFinite(fontWeight) ? fontWeight : undefined,
-    lineHeight: Number.isFinite(lineHeight) ? lineHeight : settings.lineHeight || undefined,
-    fontStyle: elementStyle?.fontStyle === "italic" ? "italic" : undefined,
-    textDecoration: typeof elementStyle?.textDecoration === "string" ? elementStyle.textDecoration : undefined,
-    textAlign: textAlignValue(elementStyle?.textAlign, settings.alignment),
-    backgroundColor: styleStringOrUndefined(elementStyle?.backgroundColor),
-    borderRadius: numericCss(elementStyle?.borderRadius),
-    width: styleWidth(elementStyle?.width),
-    maxWidth: styleWidth(elementStyle?.maxWidth),
-    marginTop: numericCss(elementStyle?.marginTop ?? settings.marginTop),
-    marginBottom: numericCss(elementStyle?.marginBottom ?? settings.marginBottom),
-    margin: numericCss(elementStyle?.margin),
-    padding: numericCss(elementStyle?.padding)
+    ...elementStyleToCss(elementStyle, device, {
+      textColor: settings.textColor,
+      fontFamily: settings.fontFamily,
+      fontWeight: settings.fontWeight,
+      lineHeight: settings.lineHeight
+    }),
+    textAlign: styleTextAlignValue(getResponsiveElementStyle(elementStyle, device).textAlign ?? elementStyle?.textAlign) ?? settings.alignment,
+    marginTop: cssLength(getResponsiveElementStyle(elementStyle, device).marginTop ?? elementStyle?.marginTop ?? settings.marginTop),
+    marginBottom: cssLength(getResponsiveElementStyle(elementStyle, device).marginBottom ?? elementStyle?.marginBottom ?? settings.marginBottom)
   };
 }
 
 function elementInlineStyle(elementStyle: BuilderElementStyle | undefined): CSSProperties {
-  return {
-    color: styleStringOrUndefined(elementStyle?.color),
-    backgroundColor: styleStringOrUndefined(elementStyle?.backgroundColor),
-    fontSize: numericCss(elementStyle?.fontSize),
-    textAlign: textAlignValue(elementStyle?.textAlign),
-    borderRadius: numericCss(elementStyle?.borderRadius),
-    width: styleWidth(elementStyle?.width),
-    maxWidth: styleWidth(elementStyle?.maxWidth),
-    padding: numericCss(elementStyle?.padding),
-    margin: numericCss(elementStyle?.margin),
-    overflow: elementStyle?.borderRadius !== undefined ? "hidden" : undefined
-  };
+  return elementStyleToCss(elementStyle);
 }
 
 function textAlignValue(value: BuilderElementStyle[string], fallback?: LandingpageSectionSettings["alignment"]): CSSProperties["textAlign"] {
@@ -1589,14 +1461,33 @@ function textAlignValue(value: BuilderElementStyle[string], fallback?: Landingpa
 }
 
 function getResponsiveElementStyle(style: BuilderElementStyle | undefined, device: Device): Record<string, string | number | boolean | undefined> {
-  const deviceStyle = style?.[device];
-  if (deviceStyle && typeof deviceStyle === "object") return deviceStyle as Record<string, string | number | boolean | undefined>;
-  return {};
+  return responsiveStyle(style, device);
 }
 
 function responsiveElementPatch(style: BuilderElementStyle | undefined, device: Device, key: string, value: string | number | boolean): BuilderElementStyle {
   const deviceStyle = style?.[device] && typeof style[device] === "object" ? style[device] as Record<string, string | number | boolean | undefined> : {};
-  return { [device]: { ...deviceStyle, [key]: value } };
+  const basePatch = rootSyncedElementStyleKeys.has(key) ? { [key]: value } : {};
+  return { ...basePatch, [device]: { ...deviceStyle, [key]: value } };
+}
+
+const rootSyncedElementStyleKeys = new Set([
+  "fontFamily",
+  "fontSize",
+  "color",
+  "fontWeight",
+  "lineHeight",
+  "letterSpacing",
+  "margin",
+  "marginTop",
+  "marginBottom",
+  "padding",
+  "textAlign",
+  "backgroundColor",
+  "maxWidth"
+]);
+
+function currentStyleValue(style: BuilderElementStyle | undefined, device: Device, key: string) {
+  return getResponsiveElementStyle(style, device)[key] ?? style?.[key];
 }
 
 function numericCss(value: string | number | boolean | Record<string, unknown> | undefined) {
@@ -1630,7 +1521,6 @@ function CompareCard({
   globalDesign,
   onAdd,
   onChange,
-  onDelete,
   onDeleteElement,
   onDuplicate,
   onEdit,
@@ -1646,7 +1536,6 @@ function CompareCard({
   globalDesign: GlobalLandingpageDesign;
   onAdd: () => void;
   onChange: (index: number, value: string) => void;
-  onDelete: (index: number) => void;
   onDeleteElement: () => void;
   onDuplicate: () => void;
   onEdit: (sectionId: string, field: EditingField, kind?: BuilderElementKind) => void;
@@ -1676,7 +1565,6 @@ function CompareCard({
               >
                 {item}
               </span>
-              <button type="button" onClick={(event) => { event.stopPropagation(); onDelete(index); }} className="text-xs text-slate-400">Del</button>
             </li>
           </ElementChrome>
         ))}
@@ -1778,11 +1666,7 @@ function SectionProperties({
   aiPreview,
   device,
   onAcceptAi,
-  onDelete,
-  onDuplicate,
   onRejectAi,
-  onMoveDown,
-  onMoveUp,
   onElementSettingsChange,
   onElementStyleChange,
   onElementTextChange,
@@ -1794,11 +1678,7 @@ function SectionProperties({
   aiPreview: Record<string, string> | null;
   device: Device;
   onAcceptAi: () => void;
-  onDelete: () => void;
-  onDuplicate: () => void;
   onRejectAi: () => void;
-  onMoveDown: () => void;
-  onMoveUp: () => void;
   onElementSettingsChange: (patch: Partial<LandingpageSectionSettings>) => void;
   onElementStyleChange: (patch: BuilderElementStyle) => void;
   onElementTextChange: (value: string) => void;
@@ -1812,12 +1692,6 @@ function SectionProperties({
       <div>
         <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">Editor</p>
         <h2 className="mt-2 text-xl font-semibold text-slate-950">{editorTitle(activeElement, section)}</h2>
-      </div>
-      <div className="grid grid-cols-2 gap-2">
-        <MiniButton onClick={onMoveUp}>Hoch</MiniButton>
-        <MiniButton onClick={onMoveDown}>Runter</MiniButton>
-        <MiniButton onClick={onDuplicate}>Duplizieren</MiniButton>
-        <MiniButton onClick={onDelete}>Löschen</MiniButton>
       </div>
       {aiPreview ? (
         <div className="rounded-2xl border border-[#d8d4ff] bg-[#f4f2ff] p-4">
@@ -1844,6 +1718,7 @@ function SectionProperties({
       {isElementEdit ? null : (
         <>
       <ResponsiveModuleControls section={section} device={device} onSectionChange={onSectionChange} />
+      <BackgroundControls title="Hintergrund" value={settings} onChange={onSettingsChange} />
       {section.type === "header" ? <HeaderFields settings={settings} onChange={onSettingsChange} /> : null}
       {section.type === "hero" ? <HeroFields settings={settings} onChange={onSettingsChange} /> : null}
       {section.type === "explainer_video" ? <ExplainerFields settings={settings} onChange={onSettingsChange} /> : null}
@@ -1860,19 +1735,128 @@ function SectionProperties({
 function HeaderFields({ settings, onChange }: FieldGroupProps) {
   return (
     <div className="space-y-3">
-      <Field label="Logo URL" value={settings.headerLogoUrl ?? settings.logoUrl ?? ""} onChange={(value) => onChange({ headerLogoUrl: value, logoUrl: value })} />
-      <AssetFilePicker label="Logo aus Asset Library" type="logo" onSelect={(value) => onChange({ headerLogoUrl: value, logoUrl: value })} />
-      <Field label="Logo Alt Text" value={settings.headerLogoAlt ?? ""} onChange={(value) => onChange({ headerLogoAlt: value })} />
-      <Field label="Logo Breite" type="number" value={settings.headerLogoWidth ?? ""} onChange={(value) => onChange({ headerLogoWidth: value })} />
-      <Field label="Logo Höhe optional" type="number" value={settings.headerLogoHeight ?? ""} onChange={(value) => onChange({ headerLogoHeight: value })} />
+      <LogoElementEditor settings={settings} onSettingsChange={onChange} />
       <Select label="Logo Position" value={settings.headerLogoPosition ?? "left"} options={["left", "center"]} onChange={(value) => onChange({ headerLogoPosition: value as LandingpageSectionSettings["headerLogoPosition"] })} />
-      <Field label="Textfallback" value={settings.headerTextFallback ?? ""} onChange={(value) => onChange({ headerTextFallback: value })} />
       <Field label="Menüpunkt 1 Text" value={settings.menuItem1Text ?? ""} onChange={(value) => onChange({ menuItem1Text: value })} />
       <Field label="Menüpunkt 2 Text" value={settings.menuItem2Text ?? ""} onChange={(value) => onChange({ menuItem2Text: value })} />
       <Field label="Menüpunkt 3 Text" value={settings.menuItem3Text ?? ""} onChange={(value) => onChange({ menuItem3Text: value })} />
       <Field label="Header CTA Text" value={settings.headerCtaText ?? ""} onChange={(value) => onChange({ headerCtaText: value })} />
       <Field label="Header CTA URL" value={settings.headerCtaUrl ?? ""} onChange={(value) => onChange({ headerCtaUrl: value })} />
       <Select label="Ausrichtung" value={settings.headerAlignment ?? "left"} options={["left", "center", "right"]} onChange={(value) => onChange({ headerAlignment: value as LandingpageSectionSettings["headerAlignment"] })} />
+    </div>
+  );
+}
+
+function LogoElementEditor({ settings, onSettingsChange }: { settings: LandingpageSectionSettings; onSettingsChange: (patch: Partial<LandingpageSectionSettings>) => void }) {
+  const logo = resolveHeaderLogo(settings);
+  const setLogo = (patch: Partial<LandingpageSectionSettings>) => onSettingsChange(headerLogoCompatibilityPatch(patch));
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-sm font-semibold text-slate-950">Logo</p>
+          <p className="mt-1 text-xs leading-5 text-slate-500">Textlogo oder Bildlogo für den Header.</p>
+        </div>
+        <span className="rounded-full bg-slate-100 px-2 py-1 text-[11px] font-bold uppercase text-slate-500">{logo.type === "image" ? "Bild" : "Text"}</span>
+      </div>
+      <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+        <div className="flex min-h-16 items-center justify-center rounded-lg bg-white p-3">
+          {logo.type === "image" && logo.imageUrl ? (
+            <img src={logo.imageUrl} alt={logo.alt} className="block max-h-14 max-w-full object-contain" style={{ width: logoCssSize(logo.width), height: logoCssSize(logo.height) }} />
+          ) : (
+            <span className="text-xl font-extrabold text-slate-950">{logo.text}</span>
+          )}
+        </div>
+      </div>
+      <div className="mt-4 space-y-3">
+        <Select label="Logo-Typ" value={logo.type} options={["text", "image"]} onChange={(value) => setLogo({ logoType: value as LandingpageSectionSettings["logoType"] })} />
+        <Field label="Logo-Text" value={logo.text} onChange={(value) => setLogo({ logoText: value || "Tasklytic" })} />
+        <Field label="Logo-Bild-URL" value={logo.imageUrl} onChange={(value) => setLogo({ logoType: value ? "image" : settings.logoType, logoImageUrl: value })} />
+        <AssetFilePicker label="Logo hochladen oder auswählen" type="logo" onSelect={(value) => setLogo({ logoType: "image", logoImageUrl: value })} />
+        <Field label="Alt-Text" value={logo.alt} onChange={(value) => setLogo({ logoAlt: value })} />
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="Breite" type="number" value={logo.width} onChange={(value) => setLogo({ logoWidth: value })} />
+          <Field label="Höhe" type="number" value={logo.height} onChange={(value) => setLogo({ logoHeight: value })} />
+        </div>
+        {logo.imageUrl ? (
+          <button type="button" onClick={() => setLogo({ logoType: "text", logoImageUrl: "" })} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50">
+            Bild entfernen
+          </button>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+type BackgroundEditable = Partial<Pick<
+  LandingpageSectionSettings,
+  | "backgroundType"
+  | "backgroundColor"
+  | "gradientFrom"
+  | "gradientTo"
+  | "gradientDirection"
+  | "backgroundImageUrl"
+  | "backgroundSize"
+  | "backgroundPosition"
+  | "backgroundRepeat"
+  | "overlayColor"
+  | "overlayOpacity"
+>>;
+
+function BackgroundControls({
+  title,
+  value,
+  onChange
+}: {
+  title: string;
+  value: BackgroundEditable;
+  onChange: (patch: BackgroundEditable) => void;
+}) {
+  const backgroundType = value.backgroundType ?? "default";
+  const patch = (next: BackgroundEditable) => onChange(next);
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-sm font-semibold text-slate-950">{title}</p>
+          <p className="mt-1 text-xs leading-5 text-slate-500">Section- oder Element-Hintergrund live im Canvas anpassen.</p>
+        </div>
+        <span className="rounded-full bg-slate-100 px-2 py-1 text-[11px] font-bold uppercase text-slate-500">{backgroundType}</span>
+      </div>
+      <div className="mt-4 h-16 rounded-xl border border-slate-200" style={backgroundStyleFromSettings(value, "#f8fafc")} />
+      <div className="mt-4 space-y-3">
+        <Select label="Hintergrund-Typ" value={backgroundType} options={["default", "none", "color", "gradient", "image"]} onChange={(next) => patch({ backgroundType: next as LandingpageSectionSettings["backgroundType"] })} />
+        {backgroundType === "color" || backgroundType === "gradient" || backgroundType === "image" ? (
+          <div className="grid gap-3 sm:grid-cols-[auto_minmax(0,1fr)]">
+            <Field label="Farbe" type="color" value={value.backgroundColor || "#ffffff"} onChange={(backgroundColor) => patch({ backgroundColor, backgroundType })} />
+            <Field label="Hex" value={value.backgroundColor || ""} onChange={(backgroundColor) => patch({ backgroundColor, backgroundType })} />
+          </div>
+        ) : null}
+        {backgroundType === "gradient" ? (
+          <>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="Startfarbe" type="color" value={value.gradientFrom || value.backgroundColor || "#ffffff"} onChange={(gradientFrom) => patch({ gradientFrom })} />
+              <Field label="Endfarbe" type="color" value={value.gradientTo || "#dbeafe"} onChange={(gradientTo) => patch({ gradientTo })} />
+            </div>
+            <Select label="Richtung" value={value.gradientDirection || "top-bottom"} options={["top-bottom", "left-right", "diagonal", "radial"]} onChange={(gradientDirection) => patch({ gradientDirection: gradientDirection as LandingpageSectionSettings["gradientDirection"] })} />
+          </>
+        ) : null}
+        {backgroundType === "image" ? (
+          <>
+            <Field label="Bild-URL" value={value.backgroundImageUrl || ""} onChange={(backgroundImageUrl) => patch({ backgroundImageUrl })} />
+            <AssetFilePicker label="Hintergrundbild hochladen oder auswählen" type="image" onSelect={(backgroundImageUrl) => patch({ backgroundImageUrl, backgroundType: "image" })} />
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Select label="Position" value={value.backgroundPosition || "center"} options={["center", "top", "bottom", "left", "right"]} onChange={(backgroundPosition) => patch({ backgroundPosition: backgroundPosition as LandingpageSectionSettings["backgroundPosition"] })} />
+              <Select label="Größe" value={value.backgroundSize || "cover"} options={["cover", "contain", "auto"]} onChange={(backgroundSize) => patch({ backgroundSize: backgroundSize as LandingpageSectionSettings["backgroundSize"] })} />
+            </div>
+            <Select label="Wiederholung" value={value.backgroundRepeat || "no-repeat"} options={["no-repeat", "repeat"]} onChange={(backgroundRepeat) => patch({ backgroundRepeat: backgroundRepeat as LandingpageSectionSettings["backgroundRepeat"] })} />
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="Overlay-Farbe" type="color" value={value.overlayColor || "#000000"} onChange={(overlayColor) => patch({ overlayColor })} />
+              <Field label="Overlay-Deckkraft" type="number" value={value.overlayOpacity || "0"} onChange={(overlayOpacity) => patch({ overlayOpacity })} />
+            </div>
+          </>
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -1905,6 +1889,7 @@ function ResponsiveModuleControls({ section, device, onSectionChange }: { sectio
 function editorTitle(activeElement: ActiveBuilderElement | null, section: LandingpageSection) {
   if (activeElement?.kind === "button") return "Button bearbeiten";
   if (activeElement?.kind === "video") return "Video bearbeiten";
+  if (activeElement?.kind === "logo") return "Logo bearbeiten";
   if (activeElement?.kind === "list_item") return "Element bearbeiten";
   if (activeElement?.itemList === "faqItems") return activeElement.itemKey === "answer" ? "FAQ Antwort bearbeiten" : "FAQ Frage bearbeiten";
   if (activeElement?.kind === "text") {
@@ -1936,9 +1921,11 @@ function ActiveElementEditor({
     ? itemTextValue(settings, element)
     : textValueForElement(builderElement, element.field ? settings[element.field] : "");
   const elementStyle = builderElement?.style ?? {};
-  const textFallbackSize = element.field === "headline" ? 48 : element.itemList === "faqItems" && element.itemKey === "question" ? 20 : element.itemList === "faqItems" && element.itemKey === "answer" ? 15 : 22;
-  const textFallbackWeight = element.field === "headline" || element.itemKey === "question" ? 700 : 400;
-  const textFallbackLineHeight = element.field === "headline" ? 1.1 : element.itemKey === "question" ? 1.3 : 1.5;
+  const textFallbacks = textStyleFallbacks(element);
+  const elementBackgroundControls = <BackgroundControls title="Hintergrund" value={elementStyle as BackgroundEditable} onChange={(patch) => onStyleChange(patch as BuilderElementStyle)} />;
+  if (element.kind === "logo") {
+    return <LogoElementEditor settings={settings} onSettingsChange={onSettingsChange} />;
+  }
   if (element.kind === "button") {
     const linkValue = element.field === "headerCtaText" ? settings.headerCtaUrl ?? "" : settings.ctaUrl ?? "";
     return (
@@ -1979,6 +1966,7 @@ function ActiveElementEditor({
           <Field label="Margin oben" type="number" value={settings.buttonMarginTop ?? "0"} onChange={(value) => onSettingsChange({ buttonMarginTop: value })} />
           <Field label="Margin unten" type="number" value={settings.buttonMarginBottom ?? "0"} onChange={(value) => onSettingsChange({ buttonMarginBottom: value })} />
           </div>
+          {elementBackgroundControls}
         </div>
       </div>
     );
@@ -1995,6 +1983,7 @@ function ActiveElementEditor({
           <label className="flex items-center gap-3 text-sm font-medium text-slate-700"><input className="h-4 w-4" type="checkbox" checked={settings.controls !== false} onChange={(event) => onSettingsChange({ controls: event.target.checked })} /> Controls</label>
           <label className="flex items-center gap-3 text-sm font-medium text-slate-700"><input className="h-4 w-4" type="checkbox" checked={settings.autoplay === true} onChange={(event) => onSettingsChange({ autoplay: event.target.checked, muted: event.target.checked ? true : settings.muted })} /> Autoplay</label>
           <VideoDesignControls settings={settings} onChange={onSettingsChange} />
+          {elementBackgroundControls}
           <a href={settings.videoUrl || "#"} target="_blank" className="inline-flex rounded-full bg-white px-3 py-2 text-xs font-bold text-slate-700">Vorschau öffnen</a>
         </div>
       </div>
@@ -2017,18 +2006,145 @@ function ActiveElementEditor({
             <Textarea label="Text Sie" value={settings.bodyTextSie ?? settings.textSie ?? ""} onChange={(value) => onSettingsChange({ bodyTextSie: value, textSie: value })} />
           </>
         ) : null}
-        <Field label="Schriftart" value={styleString(elementStyle.fontFamily, settings.fontFamily ?? "Inter")} onChange={(value) => onStyleChange({ fontFamily: value })} />
-        <Field label="Schriftgröße" type="number" value={String(styleNumber(getResponsiveElementStyle(elementStyle, device).fontSize ?? elementStyle.fontSize, textFallbackSize))} onChange={(value) => onStyleChange(responsiveElementPatch(elementStyle, device, "fontSize", Number(value)))} />
-        <Field label="Schriftgewicht" type="number" value={String(styleNumber(elementStyle.fontWeight, textFallbackWeight))} onChange={(value) => onStyleChange({ fontWeight: Number(value) })} />
-        <Field label="Zeilenhöhe" value={String(styleNumber(getResponsiveElementStyle(elementStyle, device).lineHeight ?? elementStyle.lineHeight, textFallbackLineHeight))} onChange={(value) => onStyleChange(responsiveElementPatch(elementStyle, device, "lineHeight", Number(value)))} />
-        <Field label="Farbe" type="color" value={styleString(elementStyle.color, settings.textColor ?? "#111827")} onChange={(value) => onStyleChange({ color: value })} />
-        <Select label="Ausrichtung" value={styleString(getResponsiveElementStyle(elementStyle, device).textAlign ?? elementStyle.textAlign, settings.alignment ?? "left")} options={["left", "center", "right"]} onChange={(value) => onStyleChange(responsiveElementPatch(elementStyle, device, "textAlign", value))} />
-        <Field label="Abstand oben" type="number" value={String(styleNumber(getResponsiveElementStyle(elementStyle, device).marginTop ?? elementStyle.marginTop, 0))} onChange={(value) => onStyleChange(responsiveElementPatch(elementStyle, device, "marginTop", Number(value)))} />
-        <Field label="Abstand unten" type="number" value={String(styleNumber(getResponsiveElementStyle(elementStyle, device).marginBottom ?? elementStyle.marginBottom, element.field === "headline" ? 24 : 0))} onChange={(value) => onStyleChange(responsiveElementPatch(elementStyle, device, "marginBottom", Number(value)))} />
-        <Field label="Padding" type="number" value={String(styleNumber(getResponsiveElementStyle(elementStyle, device).padding ?? elementStyle.padding, 0))} onChange={(value) => onStyleChange(responsiveElementPatch(elementStyle, device, "padding", Number(value)))} />
-        <Field label="Max Width" value={String(getResponsiveElementStyle(elementStyle, device).maxWidth ?? elementStyle.maxWidth ?? "")} onChange={(value) => onStyleChange(responsiveElementPatch(elementStyle, device, "maxWidth", value))} />
+        <TextStyleControls
+          style={elementStyle}
+          settings={settings}
+          device={device}
+          fallbacks={textFallbacks}
+          onStyleChange={onStyleChange}
+        />
         <Select label="Animation" value={styleString(elementStyle.animation, "none")} options={["none", "fade", "slide", "scale", "lift"]} onChange={(value) => onStyleChange({ animation: value })} />
+        {elementBackgroundControls}
       </div>
+    </div>
+  );
+}
+
+type TextStyleFallbacks = {
+  fontSize: number;
+  fontWeight: number;
+  lineHeight: number;
+  marginBottom: number;
+  textColor: string;
+};
+
+function textStyleFallbacks(element: ActiveBuilderElement): TextStyleFallbacks {
+  const isHeadline = element.field === "headline";
+  const isQuestion = element.itemList === "faqItems" && element.itemKey === "question";
+  const isAnswer = element.itemList === "faqItems" && element.itemKey === "answer";
+  return {
+    fontSize: isHeadline ? 48 : isQuestion ? 20 : isAnswer ? 15 : 22,
+    fontWeight: isHeadline || isQuestion ? 700 : 400,
+    lineHeight: isHeadline ? 1.1 : isQuestion ? 1.3 : 1.5,
+    marginBottom: isHeadline ? 24 : isQuestion ? 8 : 0,
+    textColor: isAnswer ? "#475569" : "#111827"
+  };
+}
+
+function TextStyleControls({
+  style,
+  settings,
+  device,
+  fallbacks,
+  onStyleChange
+}: {
+  style: BuilderElementStyle;
+  settings: LandingpageSectionSettings;
+  device: Device;
+  fallbacks: TextStyleFallbacks;
+  onStyleChange: (patch: BuilderElementStyle) => void;
+}) {
+  return (
+    <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-3">
+      <StyleControlGroup title={`Typografie (${device})`}>
+        <TypographyControls style={style} settings={settings} device={device} fallbacks={fallbacks} onStyleChange={onStyleChange} />
+      </StyleControlGroup>
+      <StyleControlGroup title="Farbe und Ausrichtung">
+        <ColorAndAlignmentControls style={style} settings={settings} device={device} fallbacks={fallbacks} onStyleChange={onStyleChange} />
+      </StyleControlGroup>
+      <StyleControlGroup title="Abstände">
+        <SpacingControls style={style} device={device} fallbacks={fallbacks} onStyleChange={onStyleChange} />
+      </StyleControlGroup>
+    </div>
+  );
+}
+
+function TypographyControls({
+  style,
+  settings,
+  device,
+  fallbacks,
+  onStyleChange
+}: {
+  style: BuilderElementStyle;
+  settings: LandingpageSectionSettings;
+  device: Device;
+  fallbacks: TextStyleFallbacks;
+  onStyleChange: (patch: BuilderElementStyle) => void;
+}) {
+  const patch = (key: string, value: string | number | boolean) => onStyleChange(responsiveElementPatch(style, device, key, value));
+  return (
+    <div className="grid gap-3">
+      <Field label="Schriftart" value={styleString(currentStyleValue(style, device, "fontFamily"), settings.fontFamily ?? "Inter")} onChange={(value) => patch("fontFamily", value)} />
+      <SliderField label="Schriftgröße" min={10} max={96} step={1} unit="px" value={styleNumber(currentStyleValue(style, device, "fontSize"), fallbacks.fontSize)} onChange={(value) => patch("fontSize", value)} />
+      <Select label="Font Weight" value={String(styleNumber(currentStyleValue(style, device, "fontWeight"), fallbacks.fontWeight))} options={["300", "400", "500", "600", "700", "800", "900"]} onChange={(value) => patch("fontWeight", Number(value))} />
+      <SliderField label="Zeilenhöhe" min={0.9} max={2.4} step={0.05} value={styleNumber(currentStyleValue(style, device, "lineHeight"), fallbacks.lineHeight)} onChange={(value) => patch("lineHeight", value)} />
+      <SliderField label="Letter Spacing" min={-1} max={8} step={0.1} unit="px" value={styleNumber(currentStyleValue(style, device, "letterSpacing"), 0)} onChange={(value) => patch("letterSpacing", value)} />
+    </div>
+  );
+}
+
+function ColorAndAlignmentControls({
+  style,
+  settings,
+  device,
+  fallbacks,
+  onStyleChange
+}: {
+  style: BuilderElementStyle;
+  settings: LandingpageSectionSettings;
+  device: Device;
+  fallbacks: TextStyleFallbacks;
+  onStyleChange: (patch: BuilderElementStyle) => void;
+}) {
+  const patch = (key: string, value: string | number | boolean) => onStyleChange(responsiveElementPatch(style, device, key, value));
+  return (
+    <div className="grid gap-3">
+      <ColorField label="Schriftfarbe" value={styleString(currentStyleValue(style, device, "color"), settings.textColor ?? fallbacks.textColor)} onChange={(value) => patch("color", value)} />
+      <ColorField label="Hintergrundfarbe" value={styleString(currentStyleValue(style, device, "backgroundColor"), "#ffffff")} onChange={(value) => patch("backgroundColor", value)} />
+      <Select label="Ausrichtung" value={styleString(currentStyleValue(style, device, "textAlign"), settings.alignment ?? "left")} options={["left", "center", "right"]} onChange={(value) => patch("textAlign", value)} />
+    </div>
+  );
+}
+
+function SpacingControls({
+  style,
+  device,
+  fallbacks,
+  onStyleChange
+}: {
+  style: BuilderElementStyle;
+  device: Device;
+  fallbacks: TextStyleFallbacks;
+  onStyleChange: (patch: BuilderElementStyle) => void;
+}) {
+  const patch = (key: string, value: string | number | boolean) => onStyleChange(responsiveElementPatch(style, device, key, value));
+  return (
+    <div className="grid gap-3">
+      <SliderField label="Margin" min={0} max={96} step={1} unit="px" value={styleNumber(currentStyleValue(style, device, "margin"), 0)} onChange={(value) => patch("margin", value)} />
+      <SliderField label="Margin oben" min={0} max={96} step={1} unit="px" value={styleNumber(currentStyleValue(style, device, "marginTop"), 0)} onChange={(value) => patch("marginTop", value)} />
+      <SliderField label="Margin unten" min={0} max={96} step={1} unit="px" value={styleNumber(currentStyleValue(style, device, "marginBottom"), fallbacks.marginBottom)} onChange={(value) => patch("marginBottom", value)} />
+      <SliderField label="Padding" min={0} max={80} step={1} unit="px" value={styleNumber(currentStyleValue(style, device, "padding"), 0)} onChange={(value) => patch("padding", value)} />
+      <Field label="Max Width" value={styleString(currentStyleValue(style, device, "maxWidth"), "")} onChange={(value) => patch("maxWidth", value)} />
+    </div>
+  );
+}
+
+function StyleControlGroup({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <div className="space-y-3 border-b border-slate-100 pb-3 last:border-b-0 last:pb-0">
+      <p className="text-xs font-bold uppercase tracking-wide text-slate-500">{title}</p>
+      {children}
     </div>
   );
 }
@@ -2248,20 +2364,84 @@ function Field({ label, value, onChange, type = "text" }: { label: string; value
   return <label className="block min-w-0 space-y-2"><span className="block whitespace-normal break-normal text-xs font-semibold uppercase tracking-wide text-slate-500 [overflow-wrap:normal]">{label}</span><input className="h-11 w-full min-w-0 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none focus:border-[#6556ff] [overflow-wrap:anywhere]" type={type} value={value} onChange={(event) => onChange(event.target.value)} /></label>;
 }
 
+function SliderField({
+  label,
+  value,
+  min,
+  max,
+  step = 1,
+  unit = "",
+  onChange
+}: {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  step?: number;
+  unit?: string;
+  onChange: (value: number) => void;
+}) {
+  const normalized = clampNumber(value, min, max);
+  const displayValue = formatSliderValue(normalized, step);
+  const update = (next: string) => onChange(clampNumber(Number(next), min, max));
+  return (
+    <label className="block min-w-0 space-y-2">
+      <span className="flex items-center justify-between gap-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+        <span>{label}</span>
+        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-slate-700">{displayValue}{unit}</span>
+      </span>
+      <span className="grid grid-cols-[minmax(0,1fr)_76px] items-center gap-3">
+        <input
+          className="h-2 w-full cursor-pointer appearance-none rounded-full bg-slate-200 accent-[#2563eb]"
+          type="range"
+          min={min}
+          max={max}
+          step={step}
+          value={normalized}
+          onChange={(event) => update(event.target.value)}
+        />
+        <input
+          className="h-10 w-full rounded-xl border border-slate-200 bg-white px-2 text-sm font-semibold text-slate-900 outline-none focus:border-[#6556ff]"
+          type="number"
+          min={min}
+          max={max}
+          step={step}
+          value={displayValue}
+          onChange={(event) => update(event.target.value)}
+        />
+      </span>
+    </label>
+  );
+}
+
+function ColorField({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
+  const colorValue = colorInputValue(value);
+  return (
+    <label className="block min-w-0 space-y-2">
+      <span className="block whitespace-normal break-normal text-xs font-semibold uppercase tracking-wide text-slate-500 [overflow-wrap:normal]">{label}</span>
+      <span className="grid grid-cols-[48px_minmax(0,1fr)] gap-2">
+        <input
+          className="h-11 w-12 rounded-xl border border-slate-200 bg-white p-1"
+          type="color"
+          value={colorValue}
+          onChange={(event) => onChange(event.target.value)}
+        />
+        <input
+          className="h-11 w-full min-w-0 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none focus:border-[#6556ff]"
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+        />
+      </span>
+    </label>
+  );
+}
+
 function Textarea({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
   return <label className="block min-w-0 space-y-2"><span className="block whitespace-normal break-normal text-xs font-semibold uppercase tracking-wide text-slate-500 [overflow-wrap:normal]">{label}</span><textarea className="min-h-28 w-full min-w-0 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-[#6556ff]" value={value} onChange={(event) => onChange(event.target.value)} /></label>;
 }
 
 function Select({ label, value, options, onChange }: { label: string; value: string; options: string[]; onChange: (value: string) => void }) {
   return <label className="block min-w-0 space-y-2"><span className="block whitespace-normal break-normal text-xs font-semibold uppercase tracking-wide text-slate-500 [overflow-wrap:normal]">{label}</span><select className="h-11 w-full min-w-0 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none focus:border-[#6556ff]" value={value} onChange={(event) => onChange(event.target.value)}>{options.map((option) => <option key={option} value={option}>{option}</option>)}</select></label>;
-}
-
-function MiniButton({ children, onClick }: { children: string; onClick: () => void }) {
-  return <button type="button" onClick={(event) => { event.stopPropagation(); onClick(); }} className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-600">{children}</button>;
-}
-
-function MenuButton({ children, onClick, danger }: { children: string; onClick: () => void; danger?: boolean }) {
-  return <button type="button" onClick={(event) => { event.stopPropagation(); onClick(); }} className={`block w-full whitespace-nowrap rounded-lg px-3 py-2 text-left text-xs font-semibold ${danger ? "text-red-500 hover:bg-red-500/10" : "text-[var(--editor-text)] hover:bg-[var(--editor-card-hover-bg)]"}`}>{children}</button>;
 }
 
 function DeviceSwitch({ device, onDeviceChange }: { device: Device; onDeviceChange: (device: Device) => void }) {
@@ -2311,7 +2491,9 @@ function InlineElementPopup({
           <button type="button" onClick={onClose} className="grid h-8 w-8 place-items-center rounded-lg hover:bg-slate-100" aria-label="Schließen"><X className="h-4 w-4" /></button>
         </div>
         <p className="mb-3 rounded-lg bg-slate-100 px-2 py-1 text-[11px] font-medium text-slate-500">Selected: {activeElement.kind} / {activeElement.elementId ?? activeElement.field ?? activeElement.sectionId}</p>
-        {activeElement.kind === "text" || activeElement.kind === "link" || activeElement.kind === "list_item" ? (
+        {activeElement.kind === "logo" ? (
+          <LogoElementEditor settings={settings} onSettingsChange={onSettingsChange} />
+        ) : activeElement.kind === "text" || activeElement.kind === "link" || activeElement.kind === "list_item" ? (
           <InlineTextDesignPopup activeElement={activeElement} section={section} settings={settings} device={device} onSettingsChange={onSettingsChange} onStyleChange={onStyleChange} onTextChange={onTextChange} />
         ) : activeElement.kind === "button" ? (
           <InlineButtonPopup activeElement={activeElement} section={section} settings={settings} onSettingsChange={onSettingsChange} onTextChange={onTextChange} />
@@ -2343,6 +2525,7 @@ function InlineTextDesignPopup({
   const [tab, setTab] = useState<"font" | "color" | "spacing" | "animation">("font");
   const builderElement = findBuilderElementForActive(section, activeElement);
   const elementStyle = builderElement?.style ?? {};
+  const fallbacks = textStyleFallbacks(activeElement);
   const fieldValue = activeElement.itemList && activeElement.itemIndex !== undefined
     ? itemTextValue(settings, activeElement)
     : textValueForElement(builderElement, activeElement.field ? settings[activeElement.field] : "");
@@ -2358,26 +2541,13 @@ function InlineTextDesignPopup({
       </div>
       <Textarea label="Text" value={fieldValue} onChange={onTextChange} />
       {tab === "font" ? (
-        <>
-          <Field label="Schriftart" value={styleString(elementStyle.fontFamily, settings.fontFamily ?? "Inter")} onChange={(value) => onStyleChange({ fontFamily: value })} />
-          <Field label="Schriftgröße" type="number" value={String(styleNumber(getResponsiveElementStyle(elementStyle, device).fontSize ?? elementStyle.fontSize, activeElement.field === "headline" ? 48 : 22))} onChange={(value) => onStyleChange(responsiveElementPatch(elementStyle, device, "fontSize", Number(value)))} />
-          <Field label="Font Weight" type="number" value={String(styleNumber(elementStyle.fontWeight, activeElement.field === "headline" ? 700 : 400))} onChange={(value) => onStyleChange({ fontWeight: Number(value) })} />
-          <Field label="Zeilenhöhe" value={String(styleNumber(getResponsiveElementStyle(elementStyle, device).lineHeight ?? elementStyle.lineHeight, activeElement.field === "headline" ? 1.1 : 1.5))} onChange={(value) => onStyleChange(responsiveElementPatch(elementStyle, device, "lineHeight", Number(value)))} />
-        </>
+        <TypographyControls style={elementStyle} settings={settings} device={device} fallbacks={fallbacks} onStyleChange={onStyleChange} />
       ) : null}
       {tab === "color" ? (
-        <>
-          <Field label="Textfarbe" type="color" value={styleString(elementStyle.color, settings.textColor ?? "#111827")} onChange={(value) => onStyleChange({ color: value })} />
-          <Select label="Ausrichtung" value={styleString(getResponsiveElementStyle(elementStyle, device).textAlign ?? elementStyle.textAlign, settings.alignment ?? "left")} options={["left", "center", "right"]} onChange={(value) => onStyleChange(responsiveElementPatch(elementStyle, device, "textAlign", value))} />
-        </>
+        <ColorAndAlignmentControls style={elementStyle} settings={settings} device={device} fallbacks={fallbacks} onStyleChange={onStyleChange} />
       ) : null}
       {tab === "spacing" ? (
-        <>
-          <Field label="Margin oben" type="number" value={String(styleNumber(getResponsiveElementStyle(elementStyle, device).marginTop ?? elementStyle.marginTop, 0))} onChange={(value) => onStyleChange(responsiveElementPatch(elementStyle, device, "marginTop", Number(value)))} />
-          <Field label="Margin unten" type="number" value={String(styleNumber(getResponsiveElementStyle(elementStyle, device).marginBottom ?? elementStyle.marginBottom, activeElement.field === "headline" ? 24 : 0))} onChange={(value) => onStyleChange(responsiveElementPatch(elementStyle, device, "marginBottom", Number(value)))} />
-          <Field label="Padding" type="number" value={String(styleNumber(getResponsiveElementStyle(elementStyle, device).padding ?? elementStyle.padding, 0))} onChange={(value) => onStyleChange(responsiveElementPatch(elementStyle, device, "padding", Number(value)))} />
-          <Field label="Max Width" value={String(getResponsiveElementStyle(elementStyle, device).maxWidth ?? elementStyle.maxWidth ?? "")} onChange={(value) => onStyleChange(responsiveElementPatch(elementStyle, device, "maxWidth", value))} />
-        </>
+        <SpacingControls style={elementStyle} device={device} fallbacks={fallbacks} onStyleChange={onStyleChange} />
       ) : null}
       {tab === "animation" ? <Select label="Animation" value={styleString(elementStyle.animation, "none")} options={["none", "fade", "slide", "scale", "lift"]} onChange={(value) => onStyleChange({ animation: value })} /> : null}
     </div>
@@ -2562,7 +2732,7 @@ function ensureBuilderElementsForEditor(section: LandingpageSection): Landingpag
 function editableFieldsForSection(section: LandingpageSection): Array<{ field: EditingField; type: BuilderElement["type"] }> {
   if (section.type === "header") {
     return [
-      { field: "headerLogoUrl", type: "image" },
+      { field: "logoText", type: "image" },
       { field: "menuItem1Text", type: "text" },
       { field: "menuItem2Text", type: "text" },
       { field: "menuItem3Text", type: "text" },
@@ -2583,12 +2753,21 @@ function editableFieldsForSection(section: LandingpageSection): Array<{ field: E
 
 function createFieldBuilderElement(section: LandingpageSection, field: EditingField, type: BuilderElement["type"]): BuilderElement {
   const text = typeof section.settings[field] === "string" ? section.settings[field] : "";
+  const logo = section.type === "header" && field === "logoText" ? resolveHeaderLogo(section.settings) : null;
   return {
     id: `element_${section.id}_${String(field)}`,
     type,
     props: {
       field,
       text,
+      ...(logo ? {
+        logoType: logo.type,
+        text: logo.text,
+        url: logo.imageUrl,
+        alt: logo.alt,
+        width: logo.width,
+        height: logo.height
+      } : {}),
       ...(type === "button" ? {
         href: field === "headerCtaText" ? section.settings.headerCtaUrl ?? "" : section.settings.ctaUrl ?? "",
         fontSize: field === "headerCtaText" || field === "ctaText" ? section.settings.buttonFontSize ?? "14" : undefined
@@ -2658,7 +2837,7 @@ function elementTreeItems(section: LandingpageSection): Array<{ key: string; lab
   };
 
   if (section.type === "header") {
-    addField("headerLogoUrl", "Logo", "link", "Bild/Logo", <ImageIcon className="h-3.5 w-3.5" />);
+    addField("logoText", "Logo", "logo", "Bild/Textlogo", <ImageIcon className="h-3.5 w-3.5" />);
     addField("menuItem1Text", `Navigation Link: ${section.settings.menuItem1Text || "Warum wir?"}`, "link", "Navigation Link", <Navigation className="h-3.5 w-3.5" />);
     addField("menuItem2Text", `Navigation Link: ${section.settings.menuItem2Text || "Unser Ansatz"}`, "link", "Navigation Link", <Navigation className="h-3.5 w-3.5" />);
     addField("menuItem3Text", `Navigation Link: ${section.settings.menuItem3Text || "FAQ"}`, "link", "Navigation Link", <Navigation className="h-3.5 w-3.5" />);
@@ -2704,22 +2883,26 @@ function findByType(sections: LandingpageSection[], type: LandingpageSectionType
 }
 
 function useStoredBoolean(key: string, initialValue: boolean) {
-  const [value, setValue] = useState(() => {
-    if (typeof window === "undefined") return initialValue;
-    const stored = window.localStorage.getItem(key);
-    return stored === null ? initialValue : stored === "true";
-  });
+  const [value, setValue] = useState(initialValue);
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
+    const stored = window.localStorage.getItem(key);
+    if (stored !== null) setValue(stored === "true");
+    setReady(true);
+  }, [key]);
+
+  useEffect(() => {
+    if (!ready) return;
     window.localStorage.setItem(key, String(value));
-  }, [key, value]);
+  }, [key, ready, value]);
 
   return [value, setValue] as const;
 }
 
 function builderGridVars(leftCollapsed: boolean, rightCollapsed: boolean) {
-  if (leftCollapsed && rightCollapsed) return "[--builder-left:56px] [--builder-right:56px]";
-  if (leftCollapsed) return "[--builder-left:56px] [--builder-right:minmax(360px,400px)]";
+  if (leftCollapsed && rightCollapsed) return "[--builder-left:72px] [--builder-right:56px]";
+  if (leftCollapsed) return "[--builder-left:72px] [--builder-right:minmax(360px,400px)]";
   if (rightCollapsed) return "[--builder-left:280px] [--builder-right:56px]";
   return "[--builder-left:280px] [--builder-right:minmax(360px,400px)]";
 }
@@ -2788,8 +2971,20 @@ function flattenElementsRecursive(elements: BuilderElement[]): BuilderElement[] 
   });
 }
 
-function styleString(value: BuilderElementStyle[string], fallback: string) {
+function styleString(value: unknown, fallback: string) {
   return typeof value === "string" ? value : fallback;
+}
+
+function logoCssSize(value: string | number | null | undefined) {
+  if (value === undefined || value === null || value === "") return undefined;
+  if (typeof value === "number") return value;
+  return /^\d+(\.\d+)?$/.test(value.trim()) ? `${value}px` : value;
+}
+
+function numericLogoSize(value: string | number | null | undefined) {
+  if (value === undefined || value === null || value === "") return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 function textValueForElement(element: BuilderElement | undefined, fallback: unknown) {
@@ -2810,14 +3005,34 @@ function itemTextValue(settings: LandingpageSectionSettings, element: ActiveBuil
   return "";
 }
 
-function styleNumber(value: BuilderElementStyle[string], fallback: number) {
+function styleNumber(value: unknown, fallback: number) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function clampNumber(value: number, min: number, max: number) {
+  if (!Number.isFinite(value)) return min;
+  return Math.min(max, Math.max(min, value));
+}
+
+function formatSliderValue(value: number, step: number) {
+  if (step >= 1) return String(Math.round(value));
+  return value.toFixed(2).replace(/(\.\d*?)0+$/, "$1").replace(/\.$/, "");
+}
+
+function colorInputValue(value: string) {
+  const normalized = value.trim();
+  if (/^#[0-9a-f]{6}$/i.test(normalized)) return normalized;
+  if (/^#[0-9a-f]{3}$/i.test(normalized)) {
+    return `#${normalized.slice(1).split("").map((char) => `${char}${char}`).join("")}`;
+  }
+  return "#ffffff";
 }
 
 function elementSelectionLabel(section: LandingpageSection, activeElement: ActiveBuilderElement | null) {
   if (activeElement?.kind === "button") return "Button";
   if (activeElement?.kind === "video") return "Video";
+  if (activeElement?.kind === "logo") return "Logo";
   if (activeElement?.kind === "link") return "Link";
   if (activeElement?.itemList === "faqItems") return activeElement.itemKey === "answer" ? "Antwort" : "Frage";
   if (activeElement?.kind === "text") return activeElement.field === "headline" || activeElement.field === "subheadline" ? "Headline" : "Text";
@@ -2861,15 +3076,16 @@ function deriveLegacyPayload(sections: LandingpageSection[], design: GlobalLandi
   const finalCta = findByType(sections, "textblock")?.settings ?? {};
   const booking = findByType(sections, "booking")?.settings ?? {};
   const footer = findByType(sections, "footer")?.settings ?? {};
+  const logo = resolveHeaderLogo(header);
   return {
-    logoUrl: header.logoUrl ?? "",
-    headerLogoUrl: header.headerLogoUrl ?? header.logoUrl ?? "",
-    headerLogoAlt: header.headerLogoAlt ?? "Tasklytic",
-    headerLogoWidth: header.headerLogoWidth ? Number(header.headerLogoWidth) : null,
-    headerLogoHeight: header.headerLogoHeight ? Number(header.headerLogoHeight) : null,
+    logoUrl: logo.imageUrl,
+    headerLogoUrl: logo.imageUrl,
+    headerLogoAlt: logo.alt,
+    headerLogoWidth: numericLogoSize(logo.width),
+    headerLogoHeight: numericLogoSize(logo.height),
     headerLogoPosition: header.headerLogoPosition ?? "left",
     headerShowTextFallback: header.headerShowTextFallback !== false,
-    headerTextFallback: header.headerTextFallback ?? "Tasklytic",
+    headerTextFallback: logo.text,
     heroEnabled: findByType(sections, "hero")?.enabled ?? true,
     heroHeadline: hero.headline ?? "",
     heroBodyText: hero.bodyText ?? "",
@@ -2946,6 +3162,9 @@ function renderBuilderElementForPreview(element: BuilderElement, prospect: LeadF
 function renderSettings(settings: LandingpageSectionSettings, prospect: LeadForTemplate): LandingpageSectionSettings {
   return {
     ...settings,
+    logoText: renderText(settings.logoText, prospect),
+    logoImageUrl: renderText(settings.logoImageUrl, prospect),
+    logoAlt: renderText(settings.logoAlt, prospect),
     logoUrl: renderText(settings.logoUrl, prospect),
     headerLogoUrl: renderText(settings.headerLogoUrl, prospect),
     headerLogoAlt: renderText(settings.headerLogoAlt, prospect),

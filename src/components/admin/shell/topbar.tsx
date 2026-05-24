@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { LogOut, Menu, Moon, Sun } from "lucide-react";
 import { useEffect, useState } from "react";
 import { NotificationCenter } from "@/components/admin/notification-center";
 import { getActiveAdminItem } from "@/lib/admin-navigation";
@@ -49,22 +50,22 @@ export function Topbar({
           <button
             type="button"
             onClick={onMenuClick}
-            className="btn-secondary grid h-11 w-11 place-items-center rounded-xl text-lg md:hidden"
+            className="btn-secondary grid h-11 w-11 place-items-center rounded-xl md:hidden"
             aria-label="Navigation öffnen"
           >
-            ☰
+            <Menu className="h-5 w-5" aria-hidden="true" />
           </button>
           <Link href="/admin/dashboard" className="flex shrink-0 items-center gap-2 md:hidden" aria-label={appName}>
-            {logoUrl ? <img src={logoUrl} alt="" className="h-10 w-10 rounded-xl object-contain" /> : <span className="grid h-10 w-10 place-items-center rounded-xl bg-blue-600 text-sm font-semibold text-white">T</span>}
+            {logoUrl ? <img src={logoUrl} alt="" className="admin-brand-mark h-10 w-10 object-contain" /> : <span className="admin-brand-mark grid h-10 w-10 place-items-center text-sm font-semibold text-white">T</span>}
           </Link>
           <div className="min-w-0">
-            <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-500">{appName} Admin</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">{appName} Admin</p>
             <h1 className="truncate text-xl font-semibold text-ink md:text-2xl">{active.label}</h1>
           </div>
         </div>
         <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
           {typeof dueCount === "number" && dueCount > 0 ? (
-            <Link href="/admin/follow-ups" className="hidden min-h-10 max-w-full items-center rounded-full border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800 sm:inline-flex">
+            <Link href="/admin/follow-ups" className="admin-status-pill hidden min-h-10 max-w-full items-center rounded-full px-3 py-2 text-xs font-semibold sm:inline-flex">
               {dueCount.toLocaleString("de-DE")} Wiedervorlagen fällig
             </Link>
           ) : null}
@@ -72,9 +73,10 @@ export function Topbar({
           <button
             type="button"
             onClick={onThemeToggle}
-            className="btn-secondary inline-flex rounded-full px-3 py-2 text-xs font-medium"
+            className="btn-secondary inline-flex items-center gap-2 rounded-full px-3 py-2 text-xs font-semibold"
             aria-label={themeMode === "dark" ? "Light Mode aktivieren" : "Dark Mode aktivieren"}
           >
+            {themeMode === "dark" ? <Sun className="h-4 w-4" aria-hidden="true" /> : <Moon className="h-4 w-4" aria-hidden="true" />}
             {themeMode === "dark" ? "Hell" : "Dunkel"}
           </button>
           <button
@@ -83,8 +85,9 @@ export function Topbar({
               await fetch("/api/auth/logout", { method: "POST" }).catch(() => undefined);
               window.location.href = "/login";
             }}
-            className="btn-secondary hidden rounded-full px-3 py-2 text-xs font-medium sm:inline-flex"
+            className="btn-secondary hidden items-center gap-2 rounded-full px-3 py-2 text-xs font-semibold sm:inline-flex"
           >
+            <LogOut className="h-4 w-4" aria-hidden="true" />
             Logout
           </button>
         </div>

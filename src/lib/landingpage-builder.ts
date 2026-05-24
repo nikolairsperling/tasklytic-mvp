@@ -19,7 +19,7 @@ import {
 } from "@/lib/landingpage-templates";
 
 export type BuilderDevice = "desktop" | "tablet" | "mobile";
-export type BuilderElementKind = "section" | "text" | "button" | "video" | "link" | "list_item";
+export type BuilderElementKind = "section" | "text" | "button" | "video" | "link" | "logo" | "list_item";
 
 export type ActiveBuilderElement = {
   sectionId: string;
@@ -90,7 +90,6 @@ export function updateElement(
   elementId: string,
   patch: BuilderElementPatch
 ): LandingpageSection[] {
-  console.log("UPDATE ELEMENT CALLED", elementId, patch);
   let changed = false;
   const next = sections.map((section) => {
     let sectionChanged = false;
@@ -126,9 +125,8 @@ function updateElementsRecursive(
       nextElement = {
         ...element,
         props: patch.props ? { ...(element.props ?? {}), ...patch.props } : element.props,
-        style: patch.style ? { ...(element.style ?? {}), ...patch.style } : element.style
+        style: patch.style ? mergeBuilderElementStyle(element.style, patch.style) : element.style
       };
-      console.log("ELEMENT AFTER UPDATE", nextElement);
     }
 
     const nested = nestedBuilderElements(nextElement);
@@ -142,6 +140,26 @@ function updateElementsRecursive(
     } as BuilderElement;
   });
   return { elements: next, changed };
+}
+
+function mergeBuilderElementStyle(current: BuilderElementStyle | undefined, patch: BuilderElementStyle): BuilderElementStyle {
+  const next: BuilderElementStyle = { ...(current ?? {}) };
+  for (const [key, value] of Object.entries(patch)) {
+    if (isResponsiveDeviceKey(key) && value && typeof value === "object" && !Array.isArray(value)) {
+      const currentDevice = next[key];
+      next[key] = {
+        ...(currentDevice && typeof currentDevice === "object" && !Array.isArray(currentDevice) ? currentDevice : {}),
+        ...value
+      };
+    } else {
+      next[key] = value;
+    }
+  }
+  return next;
+}
+
+function isResponsiveDeviceKey(key: string): key is "desktop" | "tablet" | "mobile" {
+  return key === "desktop" || key === "tablet" || key === "mobile";
 }
 
 function nestedBuilderElements(element: BuilderElement): { key: "elements" | "children"; elements: BuilderElement[] } | null {
@@ -187,7 +205,8 @@ export function patchBuilderText(
   }
 
   if (!activeElement.field) return sections;
-  const withSettings = updateLandingpageSection(sections, section.id, { settings: { ...settings, [activeElement.field]: value } });
+  const logoTextPatch = activeElement.field === "logoText" ? { headerTextFallback: value } : {};
+  const withSettings = updateLandingpageSection(sections, section.id, { settings: { ...settings, [activeElement.field]: value, ...logoTextPatch } });
   return patchBuilderElementProps(withSettings, activeElement, { text: value });
 }
 
@@ -195,6 +214,14 @@ function settingsPatchToElementProps(activeElement: ActiveBuilderElement, patch:
   if (!activeElement.field) return null;
   const next: Record<string, unknown> = {};
   if (activeElement.field in patch) next.text = patch[activeElement.field];
+  if (activeElement.kind === "logo") {
+    if ("logoType" in patch) next.logoType = patch.logoType;
+    if ("logoText" in patch) next.text = patch.logoText;
+    if ("logoImageUrl" in patch) next.url = patch.logoImageUrl;
+    if ("logoAlt" in patch) next.alt = patch.logoAlt;
+    if ("logoWidth" in patch) next.width = patch.logoWidth;
+    if ("logoHeight" in patch) next.height = patch.logoHeight;
+  }
   if ("ctaUrl" in patch) next.href = patch.ctaUrl;
   if ("headerCtaUrl" in patch) next.href = patch.headerCtaUrl;
   if ("buttonColor" in patch) next.backgroundColor = patch.buttonColor;
@@ -530,10 +557,27 @@ function sanitizeSectionSettings(settings: LandingpageSectionSettings): Landingp
     menuItem1Text: sanitizeText(settings.menuItem1Text),
     menuItem2Text: sanitizeText(settings.menuItem2Text),
     menuItem3Text: sanitizeText(settings.menuItem3Text),
+    logoType: settings.logoType === "image" ? "image" : "text",
+    logoText: sanitizeText(settings.logoText),
+    logoImageUrl: sanitizeUrl(settings.logoImageUrl),
+    logoAlt: sanitizeText(settings.logoAlt),
+    logoWidth: sanitizeText(settings.logoWidth),
+    logoHeight: sanitizeText(settings.logoHeight),
     headerTextFallback: sanitizeText(settings.headerTextFallback),
     headerLogoAlt: sanitizeText(settings.headerLogoAlt),
     headerLogoUrl: sanitizeUrl(settings.headerLogoUrl),
     logoUrl: sanitizeUrl(settings.logoUrl),
+    backgroundType: sanitizeBackgroundType(settings.backgroundType),
+    backgroundColor: sanitizeText(settings.backgroundColor),
+    gradientFrom: sanitizeText(settings.gradientFrom),
+    gradientTo: sanitizeText(settings.gradientTo),
+    gradientDirection: sanitizeGradientDirection(settings.gradientDirection),
+    backgroundImageUrl: sanitizeUrl(settings.backgroundImageUrl),
+    backgroundSize: sanitizeBackgroundSize(settings.backgroundSize),
+    backgroundPosition: sanitizeBackgroundPosition(settings.backgroundPosition),
+    backgroundRepeat: settings.backgroundRepeat === "repeat" ? "repeat" : "no-repeat",
+    overlayColor: sanitizeText(settings.overlayColor),
+    overlayOpacity: sanitizeText(settings.overlayOpacity),
     videoUrl: sanitizeVideoUrl(settings.videoUrl),
     videoMobileUrl: sanitizeVideoUrl(settings.videoMobileUrl),
     videoWebmUrl: sanitizeVideoUrl(settings.videoWebmUrl),
@@ -567,6 +611,22 @@ function sanitizeVideoUrl(value: string | undefined) {
   const url = sanitizeUrl(value);
   if (!url || url.startsWith("/uploads/images/")) return "";
   return url;
+}
+
+function sanitizeBackgroundType(value: LandingpageSectionSettings["backgroundType"]): NonNullable<LandingpageSectionSettings["backgroundType"]> {
+  return value === "none" || value === "color" || value === "gradient" || value === "image" ? value : "default";
+}
+
+function sanitizeGradientDirection(value: LandingpageSectionSettings["gradientDirection"]): NonNullable<LandingpageSectionSettings["gradientDirection"]> {
+  return value === "left-right" || value === "diagonal" || value === "radial" ? value : "top-bottom";
+}
+
+function sanitizeBackgroundSize(value: LandingpageSectionSettings["backgroundSize"]): NonNullable<LandingpageSectionSettings["backgroundSize"]> {
+  return value === "contain" || value === "auto" ? value : "cover";
+}
+
+function sanitizeBackgroundPosition(value: LandingpageSectionSettings["backgroundPosition"]): NonNullable<LandingpageSectionSettings["backgroundPosition"]> {
+  return value === "top" || value === "bottom" || value === "left" || value === "right" ? value : "center";
 }
 
 export function sanitizeText(value: string | null | undefined): string {

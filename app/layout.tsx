@@ -37,13 +37,8 @@ export default function RootLayout({
   const buildVersion = getBuildVersion();
 
   return (
-    <html lang="de" className={`${inter.variable} ${lato.variable} ${poppins.variable}`}>
+    <html lang="de" className={`${inter.variable} ${lato.variable} ${poppins.variable}`} suppressHydrationWarning>
       <head>
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `(function(){try{var mode=localStorage.getItem("tasklytic-theme");if(mode!=="light"&&mode!=="dark"&&mode!=="system")mode="system";var dark=mode==="dark"||(mode==="system"&&window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches);var theme=dark?"dark":"light";var apply=function(target){if(!target)return;target.dataset.theme=theme;target.dataset.themeMode=mode;target.classList.remove("admin-light","admin-dark","theme-light","theme-dark","dark");target.classList.add("admin-theme","admin-"+theme,"theme-"+theme);};apply(document.documentElement);if(document.body)apply(document.body);else document.addEventListener("DOMContentLoaded",function(){apply(document.body);},{once:true});}catch(e){}})();`
-          }}
-        />
         <meta name="tasklytic-build-id" content={buildVersion} />
         <script src="/app-recovery.js" />
         <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png" />
@@ -52,7 +47,7 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="application-name" content="Tasklytic" />
       </head>
-      <body>
+      <body suppressHydrationWarning>
         <ServiceWorkerCleanupClient />
         {children}
       </body>

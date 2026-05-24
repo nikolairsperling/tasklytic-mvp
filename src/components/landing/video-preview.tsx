@@ -2,6 +2,7 @@
 
 import React from "react";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { Play } from "lucide-react";
 import type { VideoPreviewProps } from "@/lib/landingpage/video-preview-props";
 
 export function VideoPreview({
@@ -17,6 +18,7 @@ export function VideoPreview({
   borderRadius = 24,
   aspectRatio = "16 / 9",
   maxWidth,
+  maxHeight,
   width = "100%",
   height,
   align = "center",
@@ -43,6 +45,7 @@ export function VideoPreview({
   const frameStyle: CSSProperties = {
     aspectRatio: normalizeAspectRatio(aspectRatio),
     height,
+    maxHeight,
     borderRadius: frameRadius,
     boxShadow: shadow ? "0 24px 60px rgba(0,0,0,.18)" : "none"
   };
@@ -65,7 +68,13 @@ export function VideoPreview({
   }, [lazy, shouldLoad]);
 
   if (!videoUrl && !mobileVideoUrl && !webmVideoUrl) {
-    return <div ref={wrapperRef} className={className} style={wrapperStyle}><div className="video-frame grid place-items-center p-8 text-center text-sm font-semibold text-white/70" style={frameStyle}>Video noch nicht hinterlegt</div></div>;
+    return (
+      <div ref={wrapperRef} className={className} style={wrapperStyle}>
+        <div className="video-frame grid place-items-center p-8 text-center text-sm font-semibold text-white/70" style={frameStyle}>
+          <VideoPlaceholder label="Video noch nicht hinterlegt" />
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -99,9 +108,12 @@ export function VideoPreview({
             {videoUrl ? <source src={videoUrl} type="video/mp4" /> : null}
           </video>
         ) : posterUrl ? (
-          <img src={posterUrl} alt="" loading="eager" decoding="async" className="h-full w-full object-cover" style={{ objectFit }} />
+          <div className="relative h-full w-full">
+            <img src={posterUrl} alt="" loading="eager" decoding="async" className="h-full w-full object-cover" style={{ objectFit }} />
+            <VideoPlayOverlay />
+          </div>
         ) : (
-          <div className="h-full w-full bg-[#0b1020]" />
+          <VideoPlaceholder label="Video wird geladen" />
         )}
       </div>
       <style jsx>{`
@@ -118,6 +130,13 @@ export function VideoPreview({
           background: #0b1020;
         }
 
+        .video-placeholder {
+          min-height: 100%;
+          background:
+            radial-gradient(circle at 50% 42%, rgba(37, 99, 235, 0.22), transparent 34%),
+            linear-gradient(135deg, #111827 0%, #172033 100%);
+        }
+
         @media (max-width: 767px) {
           .video-frame {
             max-width: 100%;
@@ -132,4 +151,25 @@ export function VideoPreview({
 function normalizeAspectRatio(value: string) {
   if (value.includes(":")) return value.replace(":", " / ");
   return value || "16 / 9";
+}
+
+function VideoPlaceholder({ label }: { label: string }) {
+  return (
+    <div className="video-placeholder flex h-full w-full flex-col items-center justify-center gap-3 p-6 text-center">
+      <span className="grid h-14 w-14 place-items-center rounded-full bg-white text-slate-950 shadow-lg" aria-hidden="true">
+        <Play className="ml-0.5 h-6 w-6 fill-slate-950" />
+      </span>
+      <span className="text-sm font-semibold text-white/75">{label}</span>
+    </div>
+  );
+}
+
+function VideoPlayOverlay() {
+  return (
+    <div className="pointer-events-none absolute inset-0 grid place-items-center bg-slate-950/10">
+      <span className="grid h-14 w-14 place-items-center rounded-full bg-white/95 text-slate-950 shadow-lg backdrop-blur" aria-hidden="true">
+        <Play className="ml-0.5 h-6 w-6 fill-slate-950" />
+      </span>
+    </div>
+  );
 }

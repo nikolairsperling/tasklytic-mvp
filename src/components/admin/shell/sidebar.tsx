@@ -80,12 +80,12 @@ export function Sidebar({
       >
         <div className="drawer-header">
           <Link href="/admin" className="drawer-brand flex min-w-0 flex-1 items-center gap-3 text-inherit" onClick={onClose}>
-            {logoUrl ? <img src={logoUrl} alt="" className="drawer-logo h-10 w-10 shrink-0 rounded-xl object-contain" /> : <span className="drawer-logo-fallback grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-blue-600 text-sm font-semibold text-white">
+            {logoUrl ? <img src={logoUrl} alt="" className="admin-brand-mark drawer-logo h-10 w-10 shrink-0 object-contain" /> : <span className="admin-brand-mark drawer-logo-fallback grid h-10 w-10 shrink-0 place-items-center text-sm font-semibold text-white">
               T
             </span>}
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-sm font-semibold text-ink">{appName}</span>
-              <span className="block text-xs text-slate-400">Outreach</span>
+              <span className="block truncate text-sm font-bold text-ink">{appName}</span>
+              <span className="block text-xs font-medium text-slate-400">Admin Console</span>
             </span>
           </Link>
           <button
@@ -116,13 +116,9 @@ export function Sidebar({
                         onClick={onClose}
                         title={item.label}
                         aria-label={item.label}
-                        className={`group flex min-h-11 cursor-pointer items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition ${
-                          active
-                            ? "bg-blue-600 text-white shadow-sm"
-                            : "text-slate-500 hover:bg-gray-100 hover:text-gray-700"
-                        }`}
+                        className={`admin-nav-item group ${active ? "admin-nav-active" : "admin-nav-idle"}`}
                       >
-                        <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-lg transition-colors ${active ? "bg-white/20 text-white" : "bg-white/10 text-slate-400 group-hover:text-gray-700"}`}>
+                        <span className="admin-nav-icon">
                           <Icon className="h-4 w-4" aria-hidden="true" />
                         </span>
                         <span className="block min-w-0 flex-1 truncate text-left text-sm">{item.label}</span>

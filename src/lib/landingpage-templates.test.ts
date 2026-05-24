@@ -10,6 +10,7 @@ import {
   resolveBookingCtaUrl,
   resolveCtaUrl
 } from "@/lib/landingpage-templates";
+import { resolveHeaderLogo } from "@/lib/landingpage-logo";
 
 const baseProspect = {
   id: "p1",
@@ -164,6 +165,41 @@ describe("landingpage template rendering", () => {
     expect(t.headerShowTextFallback).toBe(true);
     expect(t.headerTextFallback).toBe("Tasklytic");
     expect(t.headerLogoUrl).toBeNull();
+  });
+
+  it("normalizes header logo image and text settings without breaking legacy fields", () => {
+    const sections = renderLandingpageSections({
+      ...template(),
+      sectionsJson: [
+        {
+          id: "section_header",
+          type: "header",
+          name: "Header",
+          enabled: true,
+          order: 1,
+          settings: {
+            logoType: "image",
+            logoText: "Acme",
+            logoImageUrl: "/uploads/logos/acme.png",
+            logoAlt: "Acme Logo",
+            logoWidth: "160",
+            logoHeight: "44"
+          }
+        }
+      ]
+    }, baseProspect);
+
+    const logo = resolveHeaderLogo(sections[0].settings);
+    expect(logo).toMatchObject({
+      type: "image",
+      text: "Acme",
+      imageUrl: "/uploads/logos/acme.png",
+      alt: "Acme Logo",
+      width: "160",
+      height: "44"
+    });
+    expect(sections[0].settings.headerLogoUrl).toBe("/uploads/logos/acme.png");
+    expect(sections[0].settings.headerTextFallback).toBe("Acme");
   });
 
   it("provides PDF and ROI report section defaults with company personalization", () => {

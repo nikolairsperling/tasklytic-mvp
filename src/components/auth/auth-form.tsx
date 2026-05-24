@@ -44,33 +44,33 @@ export function AuthForm({ mode }: { mode: "login" | "setup" }) {
   }
 
   return (
-    <form action={submit} className="flex flex-col gap-4">
+    <form action={submit} className="auth-form">
       {mode === "setup" ? (
-        <label className="block space-y-2">
-          <span className="text-sm font-medium text-slate-600">Name</span>
-          <input name="name" required autoComplete="name" className="h-12 w-full rounded-xl border border-slate-200 px-3 text-sm" />
+        <label className="auth-field">
+          <span className="auth-label">Name</span>
+          <input name="name" required autoComplete="name" className="auth-input" />
         </label>
       ) : null}
-      <label className="block space-y-2">
-        <span className="text-sm font-medium text-slate-600">E-Mail</span>
-        <input name="email" type="email" required autoComplete="email" className="h-12 w-full rounded-xl border border-slate-200 px-3 text-sm" />
+      <label className="auth-field">
+        <span className="auth-label">E-Mail</span>
+        <input name="email" type="email" required autoComplete="email" className="auth-input" />
       </label>
-      <label className="block space-y-2">
-        <span className="text-sm font-medium text-slate-600">Passwort</span>
-        <input name="password" type="password" required minLength={mode === "setup" ? 10 : undefined} autoComplete={mode === "setup" ? "new-password" : "current-password"} className="h-12 w-full rounded-xl border border-slate-200 px-3 text-sm" />
+      <label className="auth-field">
+        <span className="auth-label">Passwort</span>
+        <input name="password" type="password" required minLength={mode === "setup" ? 10 : undefined} autoComplete={mode === "setup" ? "new-password" : "current-password"} className="auth-input" />
       </label>
       {mode === "setup" ? (
-        <label className="block space-y-2">
-          <span className="text-sm font-medium text-slate-600">Passwort wiederholen</span>
-          <input name="passwordRepeat" type="password" required minLength={10} autoComplete="new-password" className="h-12 w-full rounded-xl border border-slate-200 px-3 text-sm" />
+        <label className="auth-field">
+          <span className="auth-label">Passwort wiederholen</span>
+          <input name="passwordRepeat" type="password" required minLength={10} autoComplete="new-password" className="auth-input" />
         </label>
       ) : null}
-      <button disabled={isPending} className="mt-4 w-full rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-white disabled:opacity-60">
+      <button disabled={isPending} className="auth-primary-button mt-2">
         {isPending ? "Bitte warten..." : mode === "setup" ? "Admin erstellen" : "Einloggen"}
       </button>
-      {toast ? <p className="rounded-xl bg-emerald-50 p-3 text-sm font-medium text-emerald-700">{toast}</p> : null}
-      {message ? <p className="whitespace-pre-line rounded-xl bg-red-50 p-3 text-sm text-red-700">{message}</p> : null}
-      {debug ? <p className="rounded-xl bg-slate-100 p-3 text-xs text-slate-600">{debug}</p> : null}
+      {toast ? <p className="auth-alert auth-alert-success">{toast}</p> : null}
+      {message ? <p className="auth-alert auth-alert-error">{message}</p> : null}
+      {debug ? <p className="auth-alert auth-alert-debug">{debug}</p> : null}
     </form>
   );
 }

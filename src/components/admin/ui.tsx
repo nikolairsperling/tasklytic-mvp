@@ -31,7 +31,7 @@ export function AdminCard({
   children: ReactNode;
   className?: string;
 }) {
-  return <section className={`w-full min-w-0 max-w-full break-words rounded-2xl bg-white p-4 shadow-panel sm:p-6 ${className}`}>{children}</section>;
+  return <section className={`w-full min-w-0 max-w-full break-words rounded-2xl border border-slate-200 bg-white p-4 shadow-panel sm:p-6 ${className}`}>{children}</section>;
 }
 
 export function StatCard({
@@ -177,7 +177,7 @@ export function Tabs({ tabs, active, onChange }: { tabs: string[]; active: strin
   return (
     <div className="admin-tab-scroll">
       {tabs.map((tab) => (
-        <button key={tab} type="button" onClick={() => onChange(tab)} className={`min-h-10 whitespace-nowrap rounded-full px-3 py-2 text-xs font-medium ${active === tab ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
+        <button key={tab} type="button" onClick={() => onChange(tab)} className={`min-h-10 whitespace-nowrap rounded-full px-3 py-2 text-xs font-semibold ${active === tab ? "bg-blue-600 text-white shadow-sm" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
           {tab}
         </button>
       ))}

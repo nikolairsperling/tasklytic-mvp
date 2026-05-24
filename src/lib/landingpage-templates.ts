@@ -1,5 +1,7 @@
 import type { LandingpageTemplate, Prisma, Prospect } from "@prisma/client";
+import { normalizeHeaderLogoSettings } from "@/lib/landingpage-logo";
 import { prisma } from "@/lib/prisma";
+import { landingDesignTokens } from "@/styles/landing-design";
 
 export const templateVariables = [
   "vorname",
@@ -182,6 +184,12 @@ export type BuilderContainer = {
 };
 
 export type LandingpageSectionSettings = {
+  logoType?: "image" | "text";
+  logoText?: string;
+  logoImageUrl?: string;
+  logoAlt?: string;
+  logoWidth?: string;
+  logoHeight?: string;
   logoUrl?: string;
   headerLogoUrl?: string;
   headerLogoAlt?: string;
@@ -271,7 +279,17 @@ export type LandingpageSectionSettings = {
   headlineSize?: "small" | "normal" | "large";
   textSize?: "small" | "normal" | "large";
   alignment?: "left" | "center" | "right";
+  backgroundType?: "default" | "none" | "color" | "gradient" | "image";
   backgroundColor?: string;
+  gradientFrom?: string;
+  gradientTo?: string;
+  gradientDirection?: "top-bottom" | "left-right" | "diagonal" | "radial";
+  backgroundImageUrl?: string;
+  backgroundSize?: "cover" | "contain" | "auto";
+  backgroundPosition?: "center" | "top" | "bottom" | "left" | "right";
+  backgroundRepeat?: "no-repeat" | "repeat";
+  overlayColor?: string;
+  overlayOpacity?: string;
   textColor?: string;
   buttonColor?: string;
   buttonTextColor?: string;
@@ -388,8 +406,8 @@ export function defaultLandingpageTemplate(): Prisma.LandingpageTemplateCreateIn
     headerLogoPosition: "left",
     headerShowTextFallback: true,
     headerTextFallback: "Tasklytic",
-    primaryColor: "#101828",
-    accentColor: "#14b8a6",
+    primaryColor: landingDesignTokens.colors.primary,
+    accentColor: landingDesignTokens.colors.accent,
     backgroundMode: "light",
     addressForm: "du",
     defaultCtaText: "Gratis Termin vereinbaren",
@@ -429,13 +447,13 @@ export function defaultLandingpageTemplate(): Prisma.LandingpageTemplateCreateIn
     comparisonHeadline: "Vorher und nachher",
     beforeItems: [
       "Rückfragen laufen verteilt über Telefon, E-Mail und einzelne Personen.",
-      "Dokumente und Statusmeldungen müssen manuell nachgefasst werden.",
-      "Disposition und Backoffice verlieren Zeit mit wiederkehrenden Übergaben."
+      "Dokumente und Status müssen manuell nachgefasst werden.",
+      "Dispo und Backoffice verlieren Zeit durch wiederkehrende Übergaben."
     ],
     afterItems: [
       "Rückfragen, Status und Dokumente laufen strukturierter zusammen.",
-      "Wiederkehrende manuelle Schritte werden sauber vorbereitet.",
-      "Teams gewinnen Zeit für operative Entscheidungen statt Nacharbeit."
+      "Wiederkehrende Schritte werden sauber vorbereitet.",
+      "Teams gewinnen Zeit für Entscheidungen statt Nacharbeit."
     ],
     approachEnabled: true,
     approachHeadline: "Unser Ansatz",
@@ -464,15 +482,15 @@ export function defaultLandingpageTemplate(): Prisma.LandingpageTemplateCreateIn
 
 export function defaultGlobalDesign(template?: Pick<LandingpageTemplate, "primaryColor" | "accentColor"> | null): GlobalLandingpageDesign {
   return {
-    primaryColor: template?.primaryColor ?? "#101828",
-    accentColor: template?.accentColor ?? "#14b8a6",
-    backgroundColor: "#f6f7fb",
-    textColor: "#111827",
-    buttonColor: template?.primaryColor ?? "#101828",
-    fontFamily: "Inter",
+    primaryColor: template?.primaryColor ?? landingDesignTokens.colors.primary,
+    accentColor: template?.accentColor ?? landingDesignTokens.colors.accent,
+    backgroundColor: landingDesignTokens.colors.background,
+    textColor: landingDesignTokens.colors.ink,
+    buttonColor: template?.primaryColor ?? landingDesignTokens.colors.primary,
+    fontFamily: landingDesignTokens.typography.fontFamily,
     headlineSize: "48",
-    buttonRadius: "999px",
-    cardRadius: "24px",
+    buttonRadius: landingDesignTokens.radius.button,
+    cardRadius: landingDesignTokens.radius.card,
     shadow: "soft",
     pageWidth: "normal"
   };
@@ -554,9 +572,9 @@ function defaultSectionResponsive(settings: LandingpageSectionSettings): Respons
       gap: 20,
       borderRadius: settings.borderRadius ?? "0",
       alignment: settings.alignment ?? "left",
-      videoCustomHeight: settings.videoCustomHeight || "220",
-      videoHeightMode: settings.videoCustomHeight ? "custom" : settings.videoHeightMode ?? "auto",
-      videoObjectFit: "contain",
+      videoCustomHeight: settings.videoCustomHeight ?? "",
+      videoHeightMode: settings.videoHeightMode ?? "auto",
+      videoObjectFit: settings.videoObjectFit ?? "cover",
       autoplay: settings.autoplay === true,
       muted: settings.muted === true
     }
@@ -575,29 +593,39 @@ export function defaultSectionSettings(type: LandingpageSectionType): Landingpag
     headlineSize: "large",
     textSize: "normal",
     alignment: "left",
-    backgroundColor: "#ffffff",
-    textColor: "#111827",
-    buttonColor: "#24324a",
+    backgroundType: "default",
+    backgroundColor: "transparent",
+    gradientFrom: "",
+    gradientTo: "",
+    gradientDirection: "top-bottom",
+    backgroundImageUrl: "",
+    backgroundSize: "cover",
+    backgroundPosition: "center",
+    backgroundRepeat: "no-repeat",
+    overlayColor: "#000000",
+    overlayOpacity: "0",
+    textColor: landingDesignTokens.colors.ink,
+    buttonColor: landingDesignTokens.colors.primary,
     buttonTextColor: "#ffffff",
-    buttonHoverColor: "#111827",
+    buttonHoverColor: landingDesignTokens.colors.secondary,
     buttonHoverTextColor: "#ffffff",
     buttonLinkType: "url",
     buttonWidthMode: "auto",
     buttonCustomWidth: "220",
     buttonPaddingX: "22",
     buttonPaddingY: "14",
-    buttonBorderRadius: "14",
+    buttonBorderRadius: landingDesignTokens.radius.button,
     buttonBorderColor: "transparent",
     buttonBorderWidth: "0",
     buttonFontSize: "14",
     buttonFontWeight: "700",
-    buttonShadow: false,
+    buttonShadow: true,
     buttonHoverEffect: "lift",
     buttonAnimation: "none",
     buttonAlignment: "left",
     buttonMarginTop: "0",
     buttonMarginBottom: "0",
-    borderColor: "#e2e8f0",
+    borderColor: landingDesignTokens.colors.border,
     borderWidth: "0",
     borderRadius: "0",
     paddingTop: "48",
@@ -616,14 +644,14 @@ export function defaultSectionSettings(type: LandingpageSectionType): Landingpag
     muted: false,
     loop: false,
     videoWidthMode: "full",
-    videoCustomWidth: "520px",
-    videoMaxWidth: "520px",
+    videoCustomWidth: landingDesignTokens.layout.videoWidth,
+    videoMaxWidth: landingDesignTokens.layout.videoWidth,
     videoHeightMode: "auto",
     videoCustomHeight: "",
     videoAspectRatio: "16 / 9",
     videoObjectFit: "cover",
     videoPreload: "none",
-    videoBorderRadius: "24",
+    videoBorderRadius: landingDesignTokens.radius.video,
     videoShadow: true,
     videoBackgroundColor: "transparent",
     videoPadding: "0",
@@ -665,7 +693,7 @@ export function defaultSectionSettings(type: LandingpageSectionType): Landingpag
       reportShowIcon: true,
       reportShowQrCode: false,
       alignment: "left",
-      backgroundColor: "#f8fafc",
+      backgroundColor: landingDesignTokens.colors.background,
       borderRadius: "24",
       borderWidth: "1"
     };
@@ -727,15 +755,21 @@ export function defaultSectionSettings(type: LandingpageSectionType): Landingpag
       rightTitle: "Nachher",
       iconStyle: "x_check",
       layout: "two_cards",
-      beforeItems: ["Rückfragen laufen verteilt über Telefon, E-Mail und einzelne Personen.", "Dokumente und Statusmeldungen müssen manuell nachgefasst werden."],
-      afterItems: ["Rückfragen, Status und Dokumente laufen strukturierter zusammen.", "Teams gewinnen Zeit für operative Entscheidungen statt Nacharbeit."],
-      leftItems: ["Rückfragen laufen verteilt über Telefon, E-Mail und einzelne Personen.", "Dokumente und Statusmeldungen müssen manuell nachgefasst werden."],
-      rightItems: ["Rückfragen, Status und Dokumente laufen strukturierter zusammen.", "Teams gewinnen Zeit für operative Entscheidungen statt Nacharbeit."]
+      beforeItems: ["Rückfragen laufen verteilt über Telefon, E-Mail und einzelne Personen.", "Dokumente und Status müssen manuell nachgefasst werden."],
+      afterItems: ["Rückfragen, Status und Dokumente laufen strukturierter zusammen.", "Teams gewinnen Zeit für Entscheidungen statt Nacharbeit."],
+      leftItems: ["Rückfragen laufen verteilt über Telefon, E-Mail und einzelne Personen.", "Dokumente und Status müssen manuell nachgefasst werden."],
+      rightItems: ["Rückfragen, Status und Dokumente laufen strukturierter zusammen.", "Teams gewinnen Zeit für Entscheidungen statt Nacharbeit."]
     };
   }
   if (type === "header") {
     return {
       ...base,
+      logoType: "text",
+      logoText: "Tasklytic",
+      logoImageUrl: "",
+      logoAlt: "Tasklytic",
+      logoWidth: "140",
+      logoHeight: "",
       logoUrl: "",
       headerLogoUrl: "",
       headerLogoAlt: "Tasklytic",
@@ -757,7 +791,7 @@ export function defaultSectionSettings(type: LandingpageSectionType): Landingpag
   if (type === "hero") {
     return {
       ...base,
-      headline: "Hey {{vorname}}, ich habe dir ein kurzes Video aufgenommen schaue es dir an",
+      headline: "Hey {{vorname}}, ich habe dir ein kurzes Video aufgenommen",
       bodyText: "Ich habe mir {{companyName}} kurz angesehen und zeige dir, wo bei Aufträgen, Abstimmung und Übergaben unnötig Zeit verloren gehen kann.",
       ctaText: "Gratis Termin vereinbaren",
       ctaUrl: "{{calendarUrl}}",
@@ -809,7 +843,7 @@ export function defaultSectionSettings(type: LandingpageSectionType): Landingpag
       bodyText: "",
       ctaText: "Gratis Termin vereinbaren",
       ctaUrl: "{{calendarUrl}}",
-      backgroundColor: "#101828",
+      backgroundColor: landingDesignTokens.colors.surfaceDark,
       textColor: "#ffffff",
       alignment: "center"
     };
@@ -910,7 +944,7 @@ function buttonElementProps(settings: LandingpageSectionSettings, field: "ctaTex
     href: field === "headerCtaText" ? settings.headerCtaUrl ?? "" : settings.ctaUrl ?? "",
     variant: settings.buttonStyle ?? "primary",
     size: "md",
-    backgroundColor: settings.buttonColor ?? "#24324a",
+    backgroundColor: settings.buttonColor ?? landingDesignTokens.colors.primary,
     textColor: settings.buttonTextColor ?? "#ffffff",
     borderRadius: settings.buttonBorderRadius ?? "14",
     paddingX: settings.buttonPaddingX ?? "22",
@@ -932,7 +966,7 @@ function defaultTextElementStyle(type: "headline" | "text"): BuilderElementStyle
       fontSize: 48,
       fontWeight: 700,
       lineHeight: 1.1,
-      color: "#111827",
+      color: landingDesignTokens.colors.ink,
       textAlign: "left",
       marginTop: 0,
       marginBottom: 24,
@@ -946,7 +980,7 @@ function defaultTextElementStyle(type: "headline" | "text"): BuilderElementStyle
     fontSize: 22,
     fontWeight: 400,
     lineHeight: 1.5,
-    color: "#667085",
+    color: landingDesignTokens.colors.muted,
     textAlign: "left",
     marginTop: 0,
     marginBottom: 0,
@@ -963,7 +997,7 @@ function faqTextElementStyle(type: "question" | "answer"): BuilderElementStyle {
       fontSize: 20,
       fontWeight: 700,
       lineHeight: 1.3,
-      color: "#111827",
+      color: landingDesignTokens.colors.ink,
       textAlign: "left",
       marginTop: 0,
       marginBottom: 8,
@@ -977,7 +1011,7 @@ function faqTextElementStyle(type: "question" | "answer"): BuilderElementStyle {
     fontSize: 15,
     fontWeight: 400,
     lineHeight: 1.6,
-    color: "#667085",
+    color: landingDesignTokens.colors.muted,
     textAlign: "left",
     marginTop: 8,
     marginBottom: 0,
@@ -1060,6 +1094,12 @@ export function legacyTemplateSections(template: LandingpageTemplate): Landingpa
       order: 1,
       settings: {
         ...defaultSectionSettings("header"),
+        logoType: template.headerLogoUrl || template.logoUrl ? "image" : "text",
+        logoText: template.headerTextFallback ?? "Tasklytic",
+        logoImageUrl: template.headerLogoUrl ?? template.logoUrl ?? "",
+        logoAlt: template.headerLogoAlt ?? "Tasklytic",
+        logoWidth: template.headerLogoWidth?.toString() ?? "140",
+        logoHeight: template.headerLogoHeight?.toString() ?? "",
         logoUrl: template.logoUrl ?? "",
         headerLogoUrl: template.headerLogoUrl ?? template.logoUrl ?? "",
         headerLogoAlt: template.headerLogoAlt ?? "Tasklytic",
@@ -1090,9 +1130,9 @@ export function legacyTemplateSections(template: LandingpageTemplate): Landingpa
         videoLabel: template.personalVideoButtonText,
         videoPosition: template.heroVideoPosition === "left" ? "left" : "right",
         layout: template.heroLayout === "centered" ? "centered" : template.heroVideoPosition === "left" ? "right" : "left",
-        backgroundColor: template.primaryColor,
-        textColor: "#ffffff",
-        buttonColor: template.accentColor
+        backgroundColor: "transparent",
+        textColor: landingDesignTokens.colors.ink,
+        buttonColor: landingDesignTokens.colors.primary
       }
     },
     {
@@ -1181,9 +1221,10 @@ export function legacyTemplateSections(template: LandingpageTemplate): Landingpa
         bodyText: "",
         ctaText: template.finalCtaText ?? template.defaultCtaText,
         ctaUrl: template.finalCtaUrl ?? "",
-        backgroundColor: template.primaryColor,
+        backgroundColor: landingDesignTokens.colors.surfaceDark,
         textColor: "#ffffff",
-        buttonColor: template.accentColor,
+        buttonColor: landingDesignTokens.colors.surface,
+        buttonTextColor: landingDesignTokens.colors.primary,
         alignment: "center"
       }
     },
@@ -1263,12 +1304,22 @@ function normalizeLandingpageSection(raw: unknown, order: number): LandingpageSe
     ...defaultSectionSettings(section.type),
     ...settings
   };
+  if (
+    section.type === "header"
+    && !("logoType" in settings)
+    && (typeof mergedSettings.logoImageUrl === "string" && mergedSettings.logoImageUrl
+      || typeof mergedSettings.headerLogoUrl === "string" && mergedSettings.headerLogoUrl
+      || typeof mergedSettings.logoUrl === "string" && mergedSettings.logoUrl)
+  ) {
+    mergedSettings.logoType = "image";
+  }
   if (section.type === "comparison") {
     mergedSettings.leftItems = Array.isArray(mergedSettings.leftItems) ? mergedSettings.leftItems : mergedSettings.beforeItems;
     mergedSettings.rightItems = Array.isArray(mergedSettings.rightItems) ? mergedSettings.rightItems : mergedSettings.afterItems;
     mergedSettings.beforeItems = Array.isArray(mergedSettings.beforeItems) ? mergedSettings.beforeItems : mergedSettings.leftItems;
     mergedSettings.afterItems = Array.isArray(mergedSettings.afterItems) ? mergedSettings.afterItems : mergedSettings.rightItems;
   }
+  const normalizedSettings = section.type === "header" ? normalizeHeaderLogoSettings(mergedSettings) : mergedSettings;
 
   return {
     id: typeof section.id === "string" && section.id ? section.id : `section_${order}`,
@@ -1276,10 +1327,10 @@ function normalizeLandingpageSection(raw: unknown, order: number): LandingpageSe
     name: typeof section.name === "string" && section.name ? section.name : sectionLabels[section.type],
     enabled: section.enabled !== false,
     order: typeof section.order === "number" ? section.order : order,
-    settings: mergedSettings,
-    containers: normalizeBuilderContainers(section.containers, section.type, mergedSettings),
+    settings: normalizedSettings,
+    containers: normalizeBuilderContainers(section.containers, section.type, normalizedSettings),
     style: isResponsiveStyle(section.style) ? section.style : undefined,
-    responsive: normalizeSectionResponsive(section, mergedSettings)
+    responsive: normalizeSectionResponsive(section, normalizedSettings)
   };
 }
 
@@ -1376,10 +1427,19 @@ function renderSectionSettings(
     ctaUrl: addressed.ctaUrl?.includes("{{calendarUrl}}")
       ? resolveBookingCtaUrl(addressed.ctaUrl, prospect, template)
       : renderText(addressed.ctaUrl, prospect),
+    logoText: renderText(addressed.logoText, prospect),
+    logoImageUrl: renderText(addressed.logoImageUrl, prospect),
+    logoAlt: renderText(addressed.logoAlt, prospect),
     logoUrl: renderText(addressed.logoUrl, prospect),
     headerLogoUrl: renderText(addressed.headerLogoUrl, prospect),
     headerLogoAlt: renderText(addressed.headerLogoAlt, prospect),
     headerTextFallback: renderText(addressed.headerTextFallback, prospect),
+    backgroundColor: renderText(addressed.backgroundColor, prospect),
+    gradientFrom: renderText(addressed.gradientFrom, prospect),
+    gradientTo: renderText(addressed.gradientTo, prospect),
+    backgroundImageUrl: renderText(addressed.backgroundImageUrl, prospect),
+    overlayColor: renderText(addressed.overlayColor, prospect),
+    overlayOpacity: renderText(addressed.overlayOpacity, prospect),
     menuItem1Text: renderText(addressed.menuItem1Text, prospect),
     menuItem2Text: renderText(addressed.menuItem2Text, prospect),
     menuItem3Text: renderText(addressed.menuItem3Text, prospect),

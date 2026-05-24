@@ -31,10 +31,17 @@ export function storeThemeMode(themeMode: ThemeMode) {
 
 export function applyThemeToDocument(effectiveTheme: EffectiveTheme, themeMode: ThemeMode) {
   if (typeof document === "undefined") return;
-  for (const target of [document.documentElement, document.body]) {
-    target.dataset.theme = effectiveTheme;
-    target.dataset.themeMode = themeMode;
-    target.classList.remove("admin-light", "admin-dark", "theme-light", "theme-dark", "dark");
-    target.classList.add("admin-theme", `admin-${effectiveTheme}`, `theme-${effectiveTheme}`);
-  }
+  const target = document.documentElement;
+  target.dataset.theme = effectiveTheme;
+  target.dataset.themeMode = themeMode;
+  target.classList.remove("admin-light", "admin-dark", "theme-light", "theme-dark", "dark");
+  target.classList.add("admin-theme", `admin-${effectiveTheme}`, `theme-${effectiveTheme}`);
+}
+
+export function clearThemeFromDocument() {
+  if (typeof document === "undefined") return;
+  const target = document.documentElement;
+  delete target.dataset.theme;
+  delete target.dataset.themeMode;
+  target.classList.remove("admin-theme", "admin-light", "admin-dark", "theme-light", "theme-dark", "dark");
 }
