@@ -918,9 +918,9 @@ function CanvasSection({
     <SelectedElementOverlay active={active} anchorKey={active ? activeElementTreeKey({ sectionId: section.id, kind: "section" }) : undefined} hidden={hidden} onClick={() => onSelect(section.id)} style={style}>
       {section.type === "header" ? <HeaderSection section={section} activeElement={activeElement} globalDesign={globalDesign} onEdit={onEdit} onOpenPopup={onOpenPopup} onDuplicate={onDuplicate} onDelete={onDelete} onMove={onMove} onPatchSettings={onPatchSettings} onInlineChange={(field, value) => onPatchElementText({ sectionId: section.id, field, kind: field === "headerCtaText" ? "button" : "text", elementId: findBuilderElementByField(section, field)?.id }, value)} device={device} /> : null}
       {section.type === "hero" ? <HeroSection section={section} activeElement={activeElement} globalDesign={globalDesign} onEdit={onEdit} onOpenPopup={onOpenPopup} onDuplicate={onDuplicate} onDelete={onDelete} onMove={onMove} onPatchSettings={onPatchSettings} onInlineChange={(field, value) => onPatchElementText({ sectionId: section.id, field, kind: field === "ctaText" ? "button" : "text", elementId: findBuilderElementByField(section, field)?.id }, value)} device={device} /> : null}
-      {section.type === "explainer_video" ? <ExplainerSection section={section} activeElement={activeElement} globalDesign={globalDesign} onEdit={onEdit} onOpenPopup={onOpenPopup} onDuplicate={onDuplicate} onDelete={onDelete} onMove={onMove} onPatchSettings={onPatchSettings} onInlineChange={(field, value) => onPatchElementText({ sectionId: section.id, field, kind: field === "ctaText" ? "button" : "text", elementId: findBuilderElementByField(section, field)?.id }, value)} /> : null}
+      {section.type === "explainer_video" ? <ExplainerSection section={section} activeElement={activeElement} globalDesign={globalDesign} device={device} onEdit={onEdit} onOpenPopup={onOpenPopup} onDuplicate={onDuplicate} onDelete={onDelete} onMove={onMove} onPatchSettings={onPatchSettings} onInlineChange={(field, value) => onPatchElementText({ sectionId: section.id, field, kind: field === "ctaText" ? "button" : "text", elementId: findBuilderElementByField(section, field)?.id }, value)} /> : null}
       {section.type === "comparison" ? <ComparisonSection section={section} activeElement={activeElement} globalDesign={globalDesign} onEdit={onEdit} onOpenPopup={onOpenPopup} onDuplicate={onDuplicate} onDelete={onDelete} onMove={onMove} onInlineChange={(field, value) => onPatchElementText({ sectionId: section.id, field, kind: "text", elementId: findBuilderElementByField(section, field)?.id }, value)} onPatchSettings={onPatchSettings} device={device} /> : null}
-      {section.type === "cta" || section.type === "cta_button" ? <CtaSection section={section} activeElement={activeElement} globalDesign={globalDesign} onEdit={onEdit} onOpenPopup={onOpenPopup} onDuplicate={onDuplicate} onDelete={onDelete} onMove={onMove} onPatchSettings={onPatchSettings} onInlineChange={(field, value) => onPatchElementText({ sectionId: section.id, field, kind: field === "ctaText" ? "button" : "text", elementId: findBuilderElementByField(section, field)?.id }, value)} /> : null}
+      {section.type === "cta" || section.type === "cta_button" ? <CtaSection section={section} activeElement={activeElement} globalDesign={globalDesign} device={device} onEdit={onEdit} onOpenPopup={onOpenPopup} onDuplicate={onDuplicate} onDelete={onDelete} onMove={onMove} onPatchSettings={onPatchSettings} onInlineChange={(field, value) => onPatchElementText({ sectionId: section.id, field, kind: field === "ctaText" ? "button" : "text", elementId: findBuilderElementByField(section, field)?.id }, value)} /> : null}
       {section.type === "image" || section.type === "video" || section.type === "benefits" || section.type === "divider" || section.type === "spacer" ? <ElementSection section={section} activeElement={activeElement} globalDesign={globalDesign} onEdit={onEdit} onOpenPopup={onOpenPopup} onDuplicate={onDuplicate} onDelete={onDelete} onMove={onMove} onPatchSettings={onPatchSettings} onInlineChange={(field, value) => onPatchElementText({ sectionId: section.id, field, kind: "text", elementId: findBuilderElementByField(section, field)?.id }, value)} device={device} /> : null}
       {section.type === "approach" || section.type === "faq" || section.type === "textblock" || section.type === "footer" ? <SimpleSection section={section} activeElement={activeElement} globalDesign={globalDesign} device={device} onEdit={onEdit} onOpenPopup={onOpenPopup} onDuplicate={onDuplicate} onDelete={onDelete} onMove={onMove} onPatchSettings={onPatchSettings} onPatchElementText={onPatchElementText} onInlineChange={(field, value) => onPatchElementText({ sectionId: section.id, field, kind: field === "ctaText" ? "button" : "text", elementId: findBuilderElementByField(section, field)?.id }, value)} /> : null}
     </SelectedElementOverlay>
@@ -953,7 +953,7 @@ function HeaderSection({ section, activeElement, globalDesign, onEdit, onOpenPop
           ) : settings.headerShowTextFallback === false ? null : logo.text}
         </button>
       </ElementChrome>
-      <nav className={`${device === "mobile" ? "hidden" : "hidden items-center gap-6 text-sm font-medium text-slate-600 md:flex"}`}>
+      <nav className={`${device === "mobile" ? "hidden" : "hidden items-center gap-6 md:flex"}`}>
         {(["menuItem1Text", "menuItem2Text", "menuItem3Text"] as EditingField[]).map((field) => {
           const builderElement = findBuilderElementByField(section, field);
           const navElement: ActiveBuilderElement = { sectionId: section.id, field, kind: "link", elementId: builderElement?.id };
@@ -964,6 +964,7 @@ function HeaderSection({ section, activeElement, globalDesign, onEdit, onOpenPop
                 tabIndex={0}
                 contentEditable
                 suppressContentEditableWarning
+                style={textInlineStyle(settings, builderElement?.style, device)}
                 onClick={(event) => { event.stopPropagation(); onEdit(section.id, field, "link"); }}
                 onInput={(event) => onInlineChange(field, event.currentTarget.textContent ?? "")}
                 className="block rounded-lg px-1 outline-none hover:bg-[#6556ff]/5 focus-visible:ring-2 focus-visible:ring-[#6556ff]"
@@ -974,7 +975,7 @@ function HeaderSection({ section, activeElement, globalDesign, onEdit, onOpenPop
           );
         })}
       </nav>
-      <ButtonBlock section={section} field="headerCtaText" selected={headerButtonSelected} text={settings.headerCtaText || "Lass uns sprechen"} globalDesign={globalDesign} activeElement={activeElement} onEdit={onEdit} onOpenPopup={onOpenPopup} onDuplicate={onDuplicate} onDelete={onDelete} onMove={onMove} onInlineChange={onInlineChange} />
+      <ButtonBlock section={section} field="headerCtaText" selected={headerButtonSelected} text={settings.headerCtaText || "Lass uns sprechen"} globalDesign={globalDesign} activeElement={activeElement} device={device} onEdit={onEdit} onOpenPopup={onOpenPopup} onDuplicate={onDuplicate} onDelete={onDelete} onMove={onMove} onInlineChange={onInlineChange} />
     </div>
   );
 }
@@ -988,27 +989,27 @@ function HeroSection({ section, activeElement, globalDesign, onEdit, onOpenPopup
   const video = <ElementChrome selected={isSameElement(activeElement, videoElement)} element={videoElement} onEdit={onEdit} onOpenPopup={onOpenPopup} onDuplicate={onDuplicate} onDelete={onDelete} onMove={onMove}><div role="button" tabIndex={0} onClick={(event) => { event.stopPropagation(); onEdit(section.id, "videoUrl", "video"); }} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") onEdit(section.id, "videoUrl", "video"); }} className="block w-full rounded-[28px] text-left outline-none"><VideoBox settings={settings} elementStyle={videoBuilderElement?.style} globalDesign={globalDesign} label={settings.videoLabel || "Persönliches Video ansehen!"} /></div></ElementChrome>;
   const copy = (
     <div className="flex flex-col justify-center">
-      <EditableText section={section} activeElement={activeElement} field="headline" device={device} className={`${device === "mobile" ? "text-3xl" : "text-5xl"} font-semibold leading-tight text-slate-950`} onEdit={onEdit} onOpenPopup={onOpenPopup} onDuplicate={onDuplicate} onDelete={onDelete} onMove={onMove} onInlineChange={onInlineChange}>{settings.headline}</EditableText>
-      <EditableText section={section} activeElement={activeElement} field="bodyText" device={device} className={`${device === "mobile" ? "mt-4 text-base leading-7" : "mt-5 text-lg leading-8"} text-slate-600`} onEdit={onEdit} onOpenPopup={onOpenPopup} onDuplicate={onDuplicate} onDelete={onDelete} onMove={onMove} onInlineChange={onInlineChange}>{settings.bodyText}</EditableText>
+      <EditableText section={section} activeElement={activeElement} field="headline" device={device} className="break-words" onEdit={onEdit} onOpenPopup={onOpenPopup} onDuplicate={onDuplicate} onDelete={onDelete} onMove={onMove} onInlineChange={onInlineChange}>{settings.headline}</EditableText>
+      <EditableText section={section} activeElement={activeElement} field="bodyText" device={device} className="mt-5 break-words" onEdit={onEdit} onOpenPopup={onOpenPopup} onDuplicate={onDuplicate} onDelete={onDelete} onMove={onMove} onInlineChange={onInlineChange}>{settings.bodyText}</EditableText>
       <ButtonAlign settings={settings} className="mt-7">
-        <ButtonBlock section={section} field="ctaText" selected={buttonSelected} text={settings.ctaText || "Gratis Termin vereinbaren"} globalDesign={globalDesign} activeElement={activeElement} onEdit={onEdit} onOpenPopup={onOpenPopup} onDuplicate={onDuplicate} onDelete={onDelete} onMove={onMove} onInlineChange={onInlineChange} />
+        <ButtonBlock section={section} field="ctaText" selected={buttonSelected} text={settings.ctaText || "Gratis Termin vereinbaren"} globalDesign={globalDesign} activeElement={activeElement} device={device} onEdit={onEdit} onOpenPopup={onOpenPopup} onDuplicate={onDuplicate} onDelete={onDelete} onMove={onMove} onInlineChange={onInlineChange} />
       </ButtonAlign>
     </div>
   );
   return <div className={`mx-auto grid max-w-6xl ${device === "mobile" ? "gap-6 py-5" : "gap-10 py-8 lg:grid-cols-[1fr_0.9fr]"}`}>{videoFirst && device !== "mobile" ? video : copy}{videoFirst && device !== "mobile" ? copy : video}</div>;
 }
 
-function ExplainerSection({ section, activeElement, globalDesign, onEdit, onOpenPopup, onDuplicate, onDelete, onMove, onInlineChange }: CanvasChildProps) {
+function ExplainerSection({ section, activeElement, globalDesign, device, onEdit, onOpenPopup, onDuplicate, onDelete, onMove, onInlineChange }: CanvasChildProps & { device: Device }) {
   const settings = section.settings;
   const buttonSelected = isActiveButton(activeElement, section.id, "ctaText");
   return (
     <div className="mx-auto max-w-5xl py-4 text-center">
-      <EditableText section={section} activeElement={activeElement} field="headline" className="mx-auto max-w-4xl text-4xl font-semibold leading-tight text-slate-950" onEdit={onEdit} onOpenPopup={onOpenPopup} onDuplicate={onDuplicate} onDelete={onDelete} onMove={onMove} onInlineChange={onInlineChange}>{settings.headline}</EditableText>
-      <EditableText section={section} activeElement={activeElement} field="subheadline" className="mx-auto mt-5 inline-block rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm" onEdit={onEdit} onOpenPopup={onOpenPopup} onDuplicate={onDuplicate} onDelete={onDelete} onMove={onMove} onInlineChange={onInlineChange}>{settings.subheadline || "Schau dir das kurz an!"}</EditableText>
+      <EditableText section={section} activeElement={activeElement} field="headline" device={device} className="mx-auto max-w-4xl break-words" onEdit={onEdit} onOpenPopup={onOpenPopup} onDuplicate={onDuplicate} onDelete={onDelete} onMove={onMove} onInlineChange={onInlineChange}>{settings.headline}</EditableText>
+      <EditableText section={section} activeElement={activeElement} field="subheadline" device={device} className="mx-auto mt-5 inline-block rounded-full border border-slate-200 bg-white px-4 py-2 shadow-sm" onEdit={onEdit} onOpenPopup={onOpenPopup} onDuplicate={onDuplicate} onDelete={onDelete} onMove={onMove} onInlineChange={onInlineChange}>{settings.subheadline || "Schau dir das kurz an!"}</EditableText>
         {settings.showArrowEmoji === false ? null : <div className="mt-4 text-3xl">↓</div>}
       <ElementChrome selected={isSameElement(activeElement, { sectionId: section.id, field: "videoUrl", kind: "video", elementId: findBuilderElementByField(section, "videoUrl")?.id })} element={{ sectionId: section.id, field: "videoUrl", kind: "video", elementId: findBuilderElementByField(section, "videoUrl")?.id }} onEdit={onEdit} onOpenPopup={onOpenPopup} onDuplicate={onDuplicate} onDelete={onDelete} onMove={onMove}><div role="button" tabIndex={0} onClick={(event) => { event.stopPropagation(); onEdit(section.id, "videoUrl", "video"); }} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") onEdit(section.id, "videoUrl", "video"); }} className="mx-auto mt-7 block max-w-4xl rounded-[28px] text-left outline-none"><VideoBox settings={settings} elementStyle={findBuilderElementByField(section, "videoUrl")?.style} globalDesign={globalDesign} label={settings.buttonText || "Video ansehen"} large /></div></ElementChrome>
       <ButtonAlign settings={settings} className="mt-7">
-        <ButtonBlock section={section} field="ctaText" selected={buttonSelected} text={settings.ctaText || "Jetzt Abläufe gemeinsam durchgehen"} globalDesign={globalDesign} activeElement={activeElement} onEdit={onEdit} onOpenPopup={onOpenPopup} onDuplicate={onDuplicate} onDelete={onDelete} onMove={onMove} onInlineChange={onInlineChange} />
+        <ButtonBlock section={section} field="ctaText" selected={buttonSelected} text={settings.ctaText || "Jetzt Abläufe gemeinsam durchgehen"} globalDesign={globalDesign} activeElement={activeElement} device={device} onEdit={onEdit} onOpenPopup={onOpenPopup} onDuplicate={onDuplicate} onDelete={onDelete} onMove={onMove} onInlineChange={onInlineChange} />
       </ButtonAlign>
     </div>
   );
@@ -1020,26 +1021,26 @@ function ComparisonSection({ section, activeElement, globalDesign, onEdit, onOpe
   const afterItems = settings.rightItems ?? settings.afterItems ?? [];
   return (
     <div className="mx-auto max-w-6xl">
-      <EditableText section={section} activeElement={activeElement} field="headline" className={`${device === "mobile" ? "text-2xl" : "text-4xl"} font-semibold text-slate-950`} onEdit={onEdit} onOpenPopup={onOpenPopup} onDuplicate={onDuplicate} onDelete={onDelete} onMove={onMove} onInlineChange={onInlineChange}>{settings.headline}</EditableText>
-      {settings.subheadline ? <EditableText section={section} activeElement={activeElement} field="subheadline" className="mt-3 text-lg leading-7 text-slate-600" onEdit={onEdit} onOpenPopup={onOpenPopup} onDuplicate={onDuplicate} onDelete={onDelete} onMove={onMove} onInlineChange={onInlineChange}>{settings.subheadline}</EditableText> : null}
+      <EditableText section={section} activeElement={activeElement} field="headline" device={device} className="break-words" onEdit={onEdit} onOpenPopup={onOpenPopup} onDuplicate={onDuplicate} onDelete={onDelete} onMove={onMove} onInlineChange={onInlineChange}>{settings.headline}</EditableText>
+      {settings.subheadline ? <EditableText section={section} activeElement={activeElement} field="subheadline" device={device} className="mt-3 break-words" onEdit={onEdit} onOpenPopup={onOpenPopup} onDuplicate={onDuplicate} onDelete={onDelete} onMove={onMove} onInlineChange={onInlineChange}>{settings.subheadline}</EditableText> : null}
       <div className={`mt-7 grid gap-5 ${device === "mobile" ? "" : "md:grid-cols-2"}`}>
-        <CompareCard section={section} activeElement={activeElement} listName="leftItems" title={settings.leftTitle || "Vorher"} tone="bad" items={beforeItems} globalDesign={globalDesign} onOpenPopup={onOpenPopup} onEdit={onEdit} onDuplicate={onDuplicate} onDeleteElement={onDelete} onMove={onMove} onAdd={() => onPatchSettings(section.id, { leftItems: [...beforeItems, "Neuer Punkt"], beforeItems: [...beforeItems, "Neuer Punkt"] })} onChange={(index, value) => onPatchSettings(section.id, { leftItems: beforeItems.map((item, itemIndex) => itemIndex === index ? value : item), beforeItems: beforeItems.map((item, itemIndex) => itemIndex === index ? value : item) })} />
-        <CompareCard section={section} activeElement={activeElement} listName="rightItems" title={settings.rightTitle || "Nachher"} tone="good" items={afterItems} globalDesign={globalDesign} onOpenPopup={onOpenPopup} onEdit={onEdit} onDuplicate={onDuplicate} onDeleteElement={onDelete} onMove={onMove} onAdd={() => onPatchSettings(section.id, { rightItems: [...afterItems, "Neuer Punkt"], afterItems: [...afterItems, "Neuer Punkt"] })} onChange={(index, value) => onPatchSettings(section.id, { rightItems: afterItems.map((item, itemIndex) => itemIndex === index ? value : item), afterItems: afterItems.map((item, itemIndex) => itemIndex === index ? value : item) })} />
+        <CompareCard section={section} activeElement={activeElement} listName="leftItems" title={settings.leftTitle || "Vorher"} tone="bad" items={beforeItems} globalDesign={globalDesign} device={device} onOpenPopup={onOpenPopup} onEdit={onEdit} onDuplicate={onDuplicate} onDeleteElement={onDelete} onMove={onMove} onAdd={() => onPatchSettings(section.id, { leftItems: [...beforeItems, "Neuer Punkt"], beforeItems: [...beforeItems, "Neuer Punkt"] })} onChange={(index, value) => onPatchSettings(section.id, { leftItems: beforeItems.map((item, itemIndex) => itemIndex === index ? value : item), beforeItems: beforeItems.map((item, itemIndex) => itemIndex === index ? value : item) })} />
+        <CompareCard section={section} activeElement={activeElement} listName="rightItems" title={settings.rightTitle || "Nachher"} tone="good" items={afterItems} globalDesign={globalDesign} device={device} onOpenPopup={onOpenPopup} onEdit={onEdit} onDuplicate={onDuplicate} onDeleteElement={onDelete} onMove={onMove} onAdd={() => onPatchSettings(section.id, { rightItems: [...afterItems, "Neuer Punkt"], afterItems: [...afterItems, "Neuer Punkt"] })} onChange={(index, value) => onPatchSettings(section.id, { rightItems: afterItems.map((item, itemIndex) => itemIndex === index ? value : item), afterItems: afterItems.map((item, itemIndex) => itemIndex === index ? value : item) })} />
       </div>
     </div>
   );
 }
 
-function CtaSection({ section, activeElement, globalDesign, onEdit, onOpenPopup, onDuplicate, onDelete, onMove, onInlineChange }: CanvasChildProps) {
+function CtaSection({ section, activeElement, globalDesign, device, onEdit, onOpenPopup, onDuplicate, onDelete, onMove, onInlineChange }: CanvasChildProps & { device: Device }) {
   const settings = section.settings;
   const buttonSelected = isActiveButton(activeElement, section.id, "ctaText");
   return (
     <div className="mx-auto max-w-5xl rounded-[28px] bg-slate-950 px-8 py-10 text-center text-white shadow-[0_18px_50px_rgba(15,23,42,0.18)]">
-      <EditableText section={section} activeElement={activeElement} field="headline" className="text-4xl font-semibold leading-tight" onEdit={onEdit} onOpenPopup={onOpenPopup} onDuplicate={onDuplicate} onDelete={onDelete} onMove={onMove} onInlineChange={onInlineChange}>{settings.headline}</EditableText>
-      <EditableText section={section} activeElement={activeElement} field="bodyText" className="mx-auto mt-4 max-w-2xl text-base leading-7 text-white/70" onEdit={onEdit} onOpenPopup={onOpenPopup} onDuplicate={onDuplicate} onDelete={onDelete} onMove={onMove} onInlineChange={onInlineChange}>{settings.bodyText}</EditableText>
+      <EditableText section={section} activeElement={activeElement} field="headline" device={device} className="break-words" onEdit={onEdit} onOpenPopup={onOpenPopup} onDuplicate={onDuplicate} onDelete={onDelete} onMove={onMove} onInlineChange={onInlineChange}>{settings.headline}</EditableText>
+      <EditableText section={section} activeElement={activeElement} field="bodyText" device={device} className="mx-auto mt-4 max-w-2xl break-words" onEdit={onEdit} onOpenPopup={onOpenPopup} onDuplicate={onDuplicate} onDelete={onDelete} onMove={onMove} onInlineChange={onInlineChange}>{settings.bodyText}</EditableText>
       <div className="mx-auto my-7 h-px max-w-lg bg-gradient-to-r from-transparent via-white/35 to-transparent" />
       <ButtonAlign settings={settings}>
-        <ButtonBlock section={section} field="ctaText" selected={buttonSelected} text={settings.ctaText || "Gratis Termin vereinbaren"} globalDesign={globalDesign} activeElement={activeElement} fallbackColor={globalDesign.accentColor} onEdit={onEdit} onOpenPopup={onOpenPopup} onDuplicate={onDuplicate} onDelete={onDelete} onMove={onMove} onInlineChange={onInlineChange} />
+        <ButtonBlock section={section} field="ctaText" selected={buttonSelected} text={settings.ctaText || "Gratis Termin vereinbaren"} globalDesign={globalDesign} activeElement={activeElement} device={device} fallbackColor={globalDesign.accentColor} onEdit={onEdit} onOpenPopup={onOpenPopup} onDuplicate={onDuplicate} onDelete={onDelete} onMove={onMove} onInlineChange={onInlineChange} />
       </ButtonAlign>
     </div>
   );
@@ -1054,7 +1055,7 @@ function SimpleSection({ section, activeElement, globalDesign, device = "desktop
   if (section.type === "faq") {
     return (
       <div className="mx-auto max-w-5xl">
-        <EditableText section={section} activeElement={activeElement} field="headline" className="text-3xl font-semibold text-slate-950" onEdit={onEdit} onOpenPopup={onOpenPopup} onDuplicate={onDuplicate} onDelete={onDelete} onMove={onMove} onInlineChange={onInlineChange}>{settings.headline || "FAQ"}</EditableText>
+        <EditableText section={section} activeElement={activeElement} field="headline" device={device} className="break-words" onEdit={onEdit} onOpenPopup={onOpenPopup} onDuplicate={onDuplicate} onDelete={onDelete} onMove={onMove} onInlineChange={onInlineChange}>{settings.headline || "FAQ"}</EditableText>
         <div className="mt-5 grid gap-3">{(settings.faqItems ?? []).map((item, index) => {
           const questionElement: ActiveBuilderElement = { sectionId: section.id, kind: "text", itemList: "faqItems", itemIndex: index, itemKey: "question" };
           const answerElement: ActiveBuilderElement = { sectionId: section.id, kind: "text", itemList: "faqItems", itemIndex: index, itemKey: "answer" };
@@ -1103,11 +1104,11 @@ function SimpleSection({ section, activeElement, globalDesign, device = "desktop
   }
   return (
     <div className="mx-auto max-w-4xl text-center">
-      <EditableText section={section} activeElement={activeElement} field="headline" className="text-3xl font-semibold text-slate-950" onEdit={onEdit} onOpenPopup={onOpenPopup} onDuplicate={onDuplicate} onDelete={onDelete} onMove={onMove} onInlineChange={onInlineChange}>{settings.headline}</EditableText>
-      <EditableText section={section} activeElement={activeElement} field="bodyText" className="mt-4 text-base leading-7 text-slate-600" onEdit={onEdit} onOpenPopup={onOpenPopup} onDuplicate={onDuplicate} onDelete={onDelete} onMove={onMove} onInlineChange={onInlineChange}>{settings.bodyText}</EditableText>
+      <EditableText section={section} activeElement={activeElement} field="headline" device={device} className="break-words" onEdit={onEdit} onOpenPopup={onOpenPopup} onDuplicate={onDuplicate} onDelete={onDelete} onMove={onMove} onInlineChange={onInlineChange}>{settings.headline}</EditableText>
+      <EditableText section={section} activeElement={activeElement} field="bodyText" device={device} className="mt-4 break-words" onEdit={onEdit} onOpenPopup={onOpenPopup} onDuplicate={onDuplicate} onDelete={onDelete} onMove={onMove} onInlineChange={onInlineChange}>{settings.bodyText}</EditableText>
       {settings.ctaText ? (
         <ButtonAlign settings={settings} className="mt-5">
-          <ButtonBlock section={section} field="ctaText" selected={buttonSelected} text={settings.ctaText} globalDesign={globalDesign} activeElement={activeElement} onEdit={onEdit} onOpenPopup={onOpenPopup} onDuplicate={onDuplicate} onDelete={onDelete} onMove={onMove} onInlineChange={onInlineChange} />
+          <ButtonBlock section={section} field="ctaText" selected={buttonSelected} text={settings.ctaText} globalDesign={globalDesign} activeElement={activeElement} device={device} onEdit={onEdit} onOpenPopup={onOpenPopup} onDuplicate={onDuplicate} onDelete={onDelete} onMove={onMove} onInlineChange={onInlineChange} />
         </ButtonAlign>
       ) : null}
     </div>
@@ -1121,7 +1122,7 @@ function ElementSection({ section, activeElement, globalDesign, onEdit, onOpenPo
   if (section.type === "image") {
     return (
       <div className="mx-auto max-w-5xl text-center">
-        {settings.headline ? <EditableText section={section} activeElement={activeElement} field="headline" className="mb-5 text-3xl font-semibold text-slate-950" onEdit={onEdit} onOpenPopup={onOpenPopup} onDuplicate={onDuplicate} onDelete={onDelete} onMove={onMove} onInlineChange={onInlineChange}>{settings.headline}</EditableText> : null}
+        {settings.headline ? <EditableText section={section} activeElement={activeElement} field="headline" device={device} className="mb-5 break-words" onEdit={onEdit} onOpenPopup={onOpenPopup} onDuplicate={onDuplicate} onDelete={onDelete} onMove={onMove} onInlineChange={onInlineChange}>{settings.headline}</EditableText> : null}
         <button type="button" onClick={(event) => { event.stopPropagation(); onEdit(section.id, "imageUrl", "link"); }} className="block w-full overflow-hidden rounded-[28px] border border-slate-200 bg-slate-100 outline-none focus-visible:ring-2 focus-visible:ring-[#6556ff]">
           {settings.imageUrl ? <img src={settings.imageUrl} alt={settings.imageAlt || ""} className="h-auto w-full object-cover" /> : <span className="grid min-h-56 place-items-center text-sm font-semibold text-slate-500">Bild auswählen</span>}
         </button>
@@ -1131,7 +1132,7 @@ function ElementSection({ section, activeElement, globalDesign, onEdit, onOpenPo
   if (section.type === "video") {
     return (
       <div className="mx-auto max-w-4xl text-center">
-        <EditableText section={section} activeElement={activeElement} field="headline" className="text-3xl font-semibold text-slate-950" onEdit={onEdit} onOpenPopup={onOpenPopup} onDuplicate={onDuplicate} onDelete={onDelete} onMove={onMove} onInlineChange={onInlineChange}>{settings.headline || "Video"}</EditableText>
+        <EditableText section={section} activeElement={activeElement} field="headline" device={device} className="break-words" onEdit={onEdit} onOpenPopup={onOpenPopup} onDuplicate={onDuplicate} onDelete={onDelete} onMove={onMove} onInlineChange={onInlineChange}>{settings.headline || "Video"}</EditableText>
         <ElementChrome selected={isSameElement(activeElement, { sectionId: section.id, field: "videoUrl", kind: "video", elementId: findBuilderElementByField(section, "videoUrl")?.id })} element={{ sectionId: section.id, field: "videoUrl", kind: "video", elementId: findBuilderElementByField(section, "videoUrl")?.id }} onEdit={onEdit} onOpenPopup={onOpenPopup} onDuplicate={onDuplicate} onDelete={onDelete} onMove={onMove}><div role="button" tabIndex={0} onClick={(event) => { event.stopPropagation(); onEdit(section.id, "videoUrl", "video"); }} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") onEdit(section.id, "videoUrl", "video"); }} className="mt-6 block w-full rounded-[28px] text-left outline-none"><VideoBox settings={settings} elementStyle={findBuilderElementByField(section, "videoUrl")?.style} globalDesign={globalDesign} label={settings.buttonText || "Video ansehen"} large /></div></ElementChrome>
       </div>
     );
@@ -1139,18 +1140,26 @@ function ElementSection({ section, activeElement, globalDesign, onEdit, onOpenPo
   if (section.type === "benefits") {
     return (
       <div className="mx-auto max-w-6xl">
-        <EditableText section={section} activeElement={activeElement} field="headline" className={`${device === "mobile" ? "text-2xl" : "text-4xl"} font-semibold text-slate-950`} onEdit={onEdit} onOpenPopup={onOpenPopup} onDuplicate={onDuplicate} onDelete={onDelete} onMove={onMove} onInlineChange={onInlineChange}>{settings.headline || "Vorteile"}</EditableText>
+        <EditableText section={section} activeElement={activeElement} field="headline" device={device} className="break-words" onEdit={onEdit} onOpenPopup={onOpenPopup} onDuplicate={onDuplicate} onDelete={onDelete} onMove={onMove} onInlineChange={onInlineChange}>{settings.headline || "Vorteile"}</EditableText>
         <div className={`mt-6 grid gap-4 ${device === "mobile" ? "" : "md:grid-cols-3"}`}>
-          {(settings.benefitItems ?? []).map((item, index) => (
-            <ElementChrome key={`${item.title}-${index}`} selected={isSameElement(activeElement, { sectionId: section.id, kind: "list_item", itemList: "benefitItems", itemIndex: index, itemKey: "title" })} element={{ sectionId: section.id, kind: "list_item", itemList: "benefitItems", itemIndex: index, itemKey: "title" }} onEdit={onEdit} onOpenPopup={onOpenPopup} onDuplicate={onDuplicate} onDelete={onDelete} onMove={onMove}>
+          {(settings.benefitItems ?? []).map((item, index) => {
+            const titleElement: ActiveBuilderElement = { sectionId: section.id, kind: "list_item", itemList: "benefitItems", itemIndex: index, itemKey: "title" };
+            const textElement: ActiveBuilderElement = { sectionId: section.id, kind: "list_item", itemList: "benefitItems", itemIndex: index, itemKey: "text" };
+            const titleBuilderElement = findBuilderElementForActive(section, titleElement);
+            const textBuilderElement = findBuilderElementForActive(section, textElement);
+            const resolvedTitle = { ...titleElement, elementId: titleBuilderElement?.id };
+            const resolvedText = { ...textElement, elementId: textBuilderElement?.id };
+            return (
+            <ElementChrome key={`${item.title}-${index}`} selected={isSameElement(activeElement, resolvedTitle)} element={resolvedTitle} onEdit={onEdit} onOpenPopup={onOpenPopup} onDuplicate={onDuplicate} onDelete={onDelete} onMove={onMove}>
               <div className="rounded-2xl bg-white p-5 shadow-[0_16px_45px_rgba(15,23,42,0.09)]" style={{ borderRadius: globalDesign.cardRadius }}>
                 <h3
                   role="textbox"
                   tabIndex={0}
                   contentEditable
                   suppressContentEditableWarning
-                  className="rounded-lg font-semibold text-slate-950 outline-none hover:bg-[#6556ff]/5 focus-visible:ring-2 focus-visible:ring-[#6556ff]"
-                  onClick={(event) => { event.stopPropagation(); onOpenPopup({ sectionId: section.id, kind: "list_item", itemList: "benefitItems", itemIndex: index, itemKey: "title" }); }}
+                  style={textInlineStyle(settings, titleBuilderElement?.style, device)}
+                  className="rounded-lg outline-none hover:bg-[#6556ff]/5 focus-visible:ring-2 focus-visible:ring-[#6556ff]"
+                  onClick={(event) => { event.stopPropagation(); onOpenPopup(resolvedTitle); }}
                   onInput={(event) => {
                     const items = settings.benefitItems ?? [];
                     onPatchSettings?.(section.id, { benefitItems: items.map((benefit, itemIndex) => itemIndex === index ? { ...benefit, title: event.currentTarget.textContent ?? "" } : benefit) });
@@ -1163,8 +1172,9 @@ function ElementSection({ section, activeElement, globalDesign, onEdit, onOpenPo
                   tabIndex={0}
                   contentEditable
                   suppressContentEditableWarning
-                  className="mt-2 rounded-lg text-sm leading-6 text-slate-600 outline-none hover:bg-[#6556ff]/5 focus-visible:ring-2 focus-visible:ring-[#6556ff]"
-                  onClick={(event) => { event.stopPropagation(); onOpenPopup({ sectionId: section.id, kind: "list_item", itemList: "benefitItems", itemIndex: index, itemKey: "text" }); }}
+                  style={textInlineStyle(settings, textBuilderElement?.style, device)}
+                  className="mt-2 rounded-lg outline-none hover:bg-[#6556ff]/5 focus-visible:ring-2 focus-visible:ring-[#6556ff]"
+                  onClick={(event) => { event.stopPropagation(); onOpenPopup(resolvedText); }}
                   onInput={(event) => {
                     const items = settings.benefitItems ?? [];
                     onPatchSettings?.(section.id, { benefitItems: items.map((benefit, itemIndex) => itemIndex === index ? { ...benefit, text: event.currentTarget.textContent ?? "" } : benefit) });
@@ -1174,7 +1184,7 @@ function ElementSection({ section, activeElement, globalDesign, onEdit, onOpenPo
                 </p>
               </div>
             </ElementChrome>
-          ))}
+          );})}
         </div>
       </div>
     );
@@ -1244,7 +1254,7 @@ function EditableText({
         style={textInlineStyle(section.settings, element?.style, device)}
         onClick={(event) => { event.stopPropagation(); onEdit(section.id, field, "text"); }}
         onInput={(event) => onInlineChange(field, event.currentTarget.textContent ?? "")}
-        className={`block w-full rounded-xl border border-transparent p-1 text-left outline-none hover:border-[#6556ff] hover:bg-[#6556ff]/5 focus-visible:border-[#6556ff] focus-visible:bg-[#6556ff]/5 focus-visible:ring-2 focus-visible:ring-[#6556ff] ${className}`}
+        className={`block w-full rounded-xl border border-transparent p-1 outline-none hover:border-[#6556ff] hover:bg-[#6556ff]/5 focus-visible:border-[#6556ff] focus-visible:bg-[#6556ff]/5 focus-visible:ring-2 focus-visible:ring-[#6556ff] ${className}`}
       >
         {text || "Text bearbeiten"}
       </span>
@@ -1303,6 +1313,7 @@ function ButtonBlock({
   text,
   globalDesign,
   activeElement,
+  device,
   fallbackColor,
   onEdit,
   onOpenPopup,
@@ -1317,6 +1328,7 @@ function ButtonBlock({
   text: string | undefined;
   globalDesign: GlobalLandingpageDesign;
   activeElement?: ActiveBuilderElement | null;
+  device: Device;
   fallbackColor?: string;
   onEdit: (sectionId: string, field: EditingField, kind?: BuilderElementKind) => void;
   onOpenPopup: (element: ActiveBuilderElement) => void;
@@ -1328,7 +1340,7 @@ function ButtonBlock({
   const settings = section.settings;
   const [hovered, setHovered] = useState(false);
   const element = findBuilderElementByField(section, field);
-  const style = buttonInlineStyle(settings, globalDesign, fallbackColor, element);
+  const style = buttonInlineStyle(settings, globalDesign, device, fallbackColor, element);
   const chromeElement: ActiveBuilderElement = { sectionId: section.id, field, kind: "button", elementId: element?.id };
   const buttonText = typeof element?.props?.text === "string" && element.props.text ? element.props.text : text;
   if (hovered) {
@@ -1397,40 +1409,43 @@ function ButtonFrame({ selected, widthMode, children }: { selected: boolean; wid
   );
 }
 
-function buttonInlineStyle(settings: LandingpageSectionSettings, globalDesign: GlobalLandingpageDesign, fallbackColor?: string, element?: ReturnType<typeof findBuilderElementByField>): CSSProperties {
+function buttonInlineStyle(settings: LandingpageSectionSettings, globalDesign: GlobalLandingpageDesign, device: Device, fallbackColor?: string, element?: ReturnType<typeof findBuilderElementByField>): CSSProperties {
   const props = element?.props ?? {};
   const elementStyle = element?.style ?? {};
+  const responsiveCss = elementStyleToCss(elementStyle, device);
   const y = Number(props.paddingY ?? settings.buttonPaddingY ?? 12);
   const x = Number(props.paddingX ?? settings.buttonPaddingX ?? 24);
   const customWidth = Number(elementStyle.width ?? props.customWidth ?? settings.buttonCustomWidth ?? 220);
   const widthMode = props.widthMode ?? settings.buttonWidthMode ?? "auto";
   const borderWidth = Number(settings.buttonBorderWidth ?? settings.borderWidth ?? 0);
-  const fontSize = Number(elementStyle.fontSize ?? props.fontSize ?? settings.buttonFontSize ?? settings.style?.desktop?.buttonFontSize ?? 14);
-  const marginTop = Number(settings.buttonMarginTop ?? 0);
-  const marginBottom = Number(settings.buttonMarginBottom ?? 0);
+  const fontSize = Number(responsiveCss.fontSize ?? props.fontSize ?? settings.buttonFontSize ?? settings.style?.desktop?.buttonFontSize ?? 14);
+  const fontWeight = Number(responsiveCss.fontWeight ?? props.fontWeight ?? settings.buttonFontWeight ?? settings.fontWeight ?? 700);
+  const marginTop = Number(responsiveCss.marginTop ?? settings.buttonMarginTop ?? 0);
+  const marginBottom = Number(responsiveCss.marginBottom ?? settings.buttonMarginBottom ?? 0);
   const elementBackground = backgroundStyleFromSettings(elementStyle);
   return {
     ...elementBackground,
-    backgroundColor: styleStringOrUndefined(elementStyle.backgroundColor) || stringProp(props.backgroundColor) || settings.buttonColor || fallbackColor || globalDesign.buttonColor,
-    color: styleStringOrUndefined(elementStyle.color) || stringProp(props.textColor) || settings.buttonTextColor || "#ffffff",
-    width: styleWidth(elementStyle.width) ?? (widthMode === "full" ? "100%" : widthMode === "custom" && Number.isFinite(customWidth) ? customWidth : "auto"),
+    backgroundColor: styleStringOrUndefined(currentStyleValue(elementStyle, device, "backgroundColor")) || stringProp(props.backgroundColor) || settings.buttonColor || fallbackColor || globalDesign.buttonColor,
+    color: styleStringOrUndefined(currentStyleValue(elementStyle, device, "color")) || stringProp(props.textColor) || settings.buttonTextColor || "#ffffff",
+    width: styleWidth(currentStyleValue(elementStyle, device, "width")) ?? (widthMode === "full" ? "100%" : widthMode === "custom" && Number.isFinite(customWidth) ? customWidth : "auto"),
     minWidth: 0,
-    maxWidth: styleWidth(elementStyle.maxWidth) ?? "100%",
+    maxWidth: styleWidth(currentStyleValue(elementStyle, device, "maxWidth")) ?? "100%",
     display: "inline-flex",
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: numericCss(elementStyle.borderRadius ?? props.borderRadius as BuilderElementStyle[string] ?? settings.buttonBorderRadius) ?? (settings.borderRadius && settings.borderRadius !== "0" ? settings.borderRadius : globalDesign.buttonRadius || 14),
+    borderRadius: numericCss(currentStyleValue(elementStyle, device, "borderRadius") ?? props.borderRadius as BuilderElementStyle[string] ?? settings.buttonBorderRadius) ?? (settings.borderRadius && settings.borderRadius !== "0" ? settings.borderRadius : globalDesign.buttonRadius || 14),
     borderColor: settings.buttonBorderColor || settings.borderColor || "transparent",
     borderWidth: Number.isFinite(borderWidth) ? borderWidth : 0,
     borderStyle: "solid" as const,
-    padding: `${Number.isFinite(y) ? y : 12}px ${Number.isFinite(x) ? x : 24}px`,
+    padding: cssLength(currentStyleValue(elementStyle, device, "padding")) ?? `${Number.isFinite(y) ? y : 12}px ${Number.isFinite(x) ? x : 24}px`,
     fontSize: Number.isFinite(fontSize) ? fontSize : 14,
-    fontWeight: Number(elementStyle.fontWeight ?? props.fontWeight ?? settings.buttonFontWeight ?? settings.fontWeight ?? 700),
+    fontWeight: Number.isFinite(fontWeight) ? fontWeight : 700,
+    lineHeight: responsiveCss.lineHeight ?? 1.2,
+    letterSpacing: responsiveCss.letterSpacing,
     boxShadow: (props.shadow ?? settings.buttonShadow) ? "0 10px 24px rgba(15, 23, 42, 0.16)" : undefined,
     marginTop: Number.isFinite(marginTop) ? marginTop : 0,
     marginBottom: Number.isFinite(marginBottom) ? marginBottom : 0,
-    textAlign: textAlignValue(elementStyle.textAlign, "center"),
-    lineHeight: 1.2,
+    textAlign: textAlignValue(currentStyleValue(elementStyle, device, "textAlign"), "center"),
     overflowWrap: "anywhere",
     whiteSpace: "normal",
     textDecoration: "none"
@@ -1501,14 +1516,14 @@ function stringProp(value: unknown) {
   return typeof value === "string" ? value : undefined;
 }
 
-function styleStringOrUndefined(value: BuilderElementStyle[string] | undefined) {
+function styleStringOrUndefined(value: unknown) {
   return typeof value === "string" ? value : undefined;
 }
 
-function styleWidth(value: BuilderElementStyle[string] | undefined) {
+function styleWidth(value: unknown): string | number | undefined {
   if (value === undefined || value === "" || typeof value === "boolean" || typeof value === "object") return undefined;
   if (typeof value === "number") return value;
-  return value;
+  return typeof value === "string" ? value : undefined;
 }
 
 function CompareCard({
@@ -1519,6 +1534,7 @@ function CompareCard({
   tone,
   items,
   globalDesign,
+  device,
   onAdd,
   onChange,
   onDeleteElement,
@@ -1534,6 +1550,7 @@ function CompareCard({
   tone: "good" | "bad";
   items: string[];
   globalDesign: GlobalLandingpageDesign;
+  device: Device;
   onAdd: () => void;
   onChange: (index: number, value: string) => void;
   onDeleteElement: () => void;
@@ -1547,19 +1564,24 @@ function CompareCard({
     <div className="bg-white p-6 shadow-[0_16px_45px_rgba(15,23,42,0.09)]" style={{ borderRadius: globalDesign.cardRadius }}>
       <h3 className="text-xl font-semibold text-slate-950">{title}</h3>
       <ul className="mt-5 space-y-3">
-        {items.map((item, index) => (
-          <ElementChrome key={`${item}-${index}`} selected={isSameElement(activeElement, { sectionId: section.id, kind: "list_item", itemList: listName, itemIndex: index })} element={{ sectionId: section.id, kind: "list_item", itemList: listName, itemIndex: index }} onEdit={onEdit} onOpenPopup={onOpenPopup} onDuplicate={onDuplicate} onDelete={onDeleteElement} onMove={onMove}>
-            <li className="flex items-start gap-3 text-sm text-slate-700">
+        {items.map((item, index) => {
+          const listElement: ActiveBuilderElement = { sectionId: section.id, kind: "list_item", itemList: listName, itemIndex: index };
+          const builderElement = findBuilderElementForActive(section, listElement);
+          const resolvedElement = { ...listElement, elementId: builderElement?.id };
+          return (
+          <ElementChrome key={`${item}-${index}`} selected={isSameElement(activeElement, resolvedElement)} element={resolvedElement} onEdit={onEdit} onOpenPopup={onOpenPopup} onDuplicate={onDuplicate} onDelete={onDeleteElement} onMove={onMove}>
+            <li className="flex items-start gap-3">
               <span className={`mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full text-xs font-bold ${good ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}>{good ? "✓" : "x"}</span>
               <span
                 role="textbox"
                 tabIndex={0}
                 contentEditable
                 suppressContentEditableWarning
+                style={textInlineStyle(section.settings, builderElement?.style, device)}
                 className="flex-1 rounded-lg outline-none hover:bg-[#6556ff]/5 focus-visible:ring-2 focus-visible:ring-[#6556ff]"
                 onClick={(event) => {
                   event.stopPropagation();
-                  onOpenPopup({ sectionId: section.id, kind: "list_item", itemList: listName, itemIndex: index });
+                  onOpenPopup(resolvedElement);
                 }}
                 onInput={(event) => onChange(index, event.currentTarget.textContent ?? "")}
               >
@@ -1567,7 +1589,7 @@ function CompareCard({
               </span>
             </li>
           </ElementChrome>
-        ))}
+        );})}
       </ul>
       <button type="button" onClick={(event) => { event.stopPropagation(); onAdd(); }} className="mt-4 text-sm font-semibold text-[#6556ff]">Eintrag hinzufügen</button>
     </div>
@@ -2704,7 +2726,20 @@ function ensureBuilderElementsForEditor(section: LandingpageSection): Landingpag
         { index, key: "answer" as const }
       ])).filter(({ index, key }) => !findBuilderElementForActive(section, { sectionId: section.id, kind: "text", itemList: "faqItems", itemIndex: index, itemKey: key }))
     : [];
-  if (!missing.length && !missingFaqElements.length) return section;
+  const comparisonItems = section.type === "comparison"
+    ? ([
+        ["leftItems", section.settings.leftItems ?? section.settings.beforeItems ?? []],
+        ["rightItems", section.settings.rightItems ?? section.settings.afterItems ?? []]
+      ] as const).flatMap(([listName, items]) => items.map((_, index) => ({ listName, index })))
+        .filter(({ listName, index }) => !findBuilderElementForActive(section, { sectionId: section.id, kind: "list_item", itemList: listName, itemIndex: index }))
+    : [];
+  const missingBenefitElements = section.type === "benefits"
+    ? (section.settings.benefitItems ?? []).flatMap((_, index) => ([
+        { index, key: "title" as const },
+        { index, key: "text" as const }
+      ])).filter(({ index, key }) => !findBuilderElementForActive(section, { sectionId: section.id, kind: "list_item", itemList: "benefitItems", itemIndex: index, itemKey: key }))
+    : [];
+  if (!missing.length && !missingFaqElements.length && !comparisonItems.length && !missingBenefitElements.length) return section;
   const [firstContainer, ...restContainers] = section.containers;
   const [firstColumn, ...restColumns] = firstContainer.columns;
   return {
@@ -2718,7 +2753,9 @@ function ensureBuilderElementsForEditor(section: LandingpageSection): Landingpag
             elements: [
               ...firstColumn.elements,
               ...missing.map(({ field, type }) => createFieldBuilderElement(section, field, type)),
-              ...missingFaqElements.map(({ index, key }) => createFaqBuilderElement(section, index, key))
+              ...missingFaqElements.map(({ index, key }) => createFaqBuilderElement(section, index, key)),
+              ...comparisonItems.map(({ listName, index }) => createListBuilderElement(section, listName, index)),
+              ...missingBenefitElements.map(({ index, key }) => createBenefitBuilderElement(section, index, key))
             ]
           },
           ...restColumns
@@ -2773,13 +2810,34 @@ function createFieldBuilderElement(section: LandingpageSection, field: EditingFi
         fontSize: field === "headerCtaText" || field === "ctaText" ? section.settings.buttonFontSize ?? "14" : undefined
       } : {})
     },
-    style: type === "headline"
-      ? { fontFamily: "Inter", fontSize: 48, fontWeight: 700, lineHeight: 1.1, color: "#111827", textAlign: "left", marginTop: 0, marginBottom: 24, desktop: { fontSize: 48 }, tablet: { fontSize: 38 }, mobile: { fontSize: 30 } }
-      : type === "text"
-        ? { fontFamily: "Inter", fontSize: 22, fontWeight: 400, lineHeight: 1.5, color: "#667085", textAlign: "left", marginTop: 0, marginBottom: 0, desktop: { fontSize: 22 }, tablet: { fontSize: 20 }, mobile: { fontSize: 17 } }
-        : { desktop: {}, tablet: {}, mobile: {} },
+    style: defaultBuilderElementStyle(section, field, type),
     editable: true
   };
+}
+
+function defaultBuilderElementStyle(section: LandingpageSection, field: EditingField, type: BuilderElement["type"]): BuilderElementStyle {
+  if (section.type === "header" && (field === "menuItem1Text" || field === "menuItem2Text" || field === "menuItem3Text")) {
+    return {
+      fontFamily: "Inter",
+      fontSize: 14,
+      fontWeight: 600,
+      lineHeight: 1.4,
+      color: "#475569",
+      textAlign: "left",
+      marginTop: 0,
+      marginBottom: 0,
+      desktop: { fontSize: 14 },
+      tablet: { fontSize: 14 },
+      mobile: { fontSize: 14 }
+    };
+  }
+  if (type === "headline") {
+    return { fontFamily: "Inter", fontSize: 48, fontWeight: 700, lineHeight: 1.1, color: "#111827", textAlign: "left", marginTop: 0, marginBottom: 24, desktop: { fontSize: 48 }, tablet: { fontSize: 38 }, mobile: { fontSize: 30 } };
+  }
+  if (type === "text") {
+    return { fontFamily: "Inter", fontSize: 22, fontWeight: 400, lineHeight: 1.5, color: "#667085", textAlign: "left", marginTop: 0, marginBottom: 0, desktop: { fontSize: 22 }, tablet: { fontSize: 20 }, mobile: { fontSize: 17 } };
+  }
+  return { desktop: {}, tablet: {}, mobile: {} };
 }
 
 function createFaqBuilderElement(section: LandingpageSection, index: number, itemKey: "question" | "answer"): BuilderElement {
@@ -2797,6 +2855,52 @@ function createFaqBuilderElement(section: LandingpageSection, index: number, ite
     style: isQuestion
       ? { fontFamily: "Inter", fontSize: 20, fontWeight: 700, lineHeight: 1.3, color: "#111827", textAlign: "left", marginTop: 0, marginBottom: 8, desktop: { fontSize: 20 }, tablet: { fontSize: 19 }, mobile: { fontSize: 18 } }
       : { fontFamily: "Inter", fontSize: 15, fontWeight: 400, lineHeight: 1.6, color: "#667085", textAlign: "left", marginTop: 8, marginBottom: 0, desktop: { fontSize: 15 }, tablet: { fontSize: 15 }, mobile: { fontSize: 14 } },
+    editable: true
+  };
+}
+
+function createListBuilderElement(section: LandingpageSection, listName: "leftItems" | "rightItems", index: number): BuilderElement {
+  const items = listName === "leftItems" ? section.settings.leftItems ?? section.settings.beforeItems ?? [] : section.settings.rightItems ?? section.settings.afterItems ?? [];
+  return {
+    id: `element_${section.id}_${listName}_${index}`,
+    type: "text",
+    props: {
+      itemList: listName,
+      itemIndex: index,
+      text: items[index] ?? ""
+    },
+    style: {
+      fontFamily: "Inter",
+      fontSize: 15,
+      fontWeight: 500,
+      lineHeight: 1.6,
+      color: "#334155",
+      textAlign: "left",
+      marginTop: 0,
+      marginBottom: 0,
+      desktop: { fontSize: 15 },
+      tablet: { fontSize: 15 },
+      mobile: { fontSize: 14 }
+    },
+    editable: true
+  };
+}
+
+function createBenefitBuilderElement(section: LandingpageSection, index: number, itemKey: "title" | "text"): BuilderElement {
+  const item = section.settings.benefitItems?.[index];
+  const isTitle = itemKey === "title";
+  return {
+    id: `element_${section.id}_benefit_${index}_${itemKey}`,
+    type: isTitle ? "headline" : "text",
+    props: {
+      itemList: "benefitItems",
+      itemIndex: index,
+      itemKey,
+      text: isTitle ? item?.title ?? "" : item?.text ?? ""
+    },
+    style: isTitle
+      ? { fontFamily: "Inter", fontSize: 18, fontWeight: 800, lineHeight: 1.3, color: "#111827", textAlign: "left", marginTop: 0, marginBottom: 8, desktop: { fontSize: 18 }, tablet: { fontSize: 17 }, mobile: { fontSize: 16 } }
+      : { fontFamily: "Inter", fontSize: 14, fontWeight: 400, lineHeight: 1.6, color: "#475569", textAlign: "left", marginTop: 8, marginBottom: 0, desktop: { fontSize: 14 }, tablet: { fontSize: 14 }, mobile: { fontSize: 14 } },
     editable: true
   };
 }
@@ -2854,8 +2958,11 @@ function elementTreeItems(section: LandingpageSection): Array<{ key: string; lab
     if (section.settings.buttonText !== undefined) addField("buttonText", "Video Label", "text", "Text", textIcon);
   }
   if (section.type === "image") addField("imageUrl", "Bild", "link", "Bild", <ImageIcon className="h-3.5 w-3.5" />);
-  (section.settings.benefitItems ?? []).forEach((_, index) => {
-    items.push({ key: `${section.id}-benefit-${index}`, label: `Karte ${index + 1}`, type: "Karte", icon: <FileText className="h-3.5 w-3.5" />, element: { sectionId: section.id, kind: "list_item", itemIndex: index } });
+  (section.settings.benefitItems ?? []).forEach((item, index) => {
+    const titleElement: ActiveBuilderElement = { sectionId: section.id, kind: "list_item", itemList: "benefitItems", itemIndex: index, itemKey: "title" };
+    const textElement: ActiveBuilderElement = { sectionId: section.id, kind: "list_item", itemList: "benefitItems", itemIndex: index, itemKey: "text" };
+    items.push({ key: `${section.id}-benefit-title-${index}`, label: item.title || `Karte ${index + 1}`, type: "Karten-Titel", icon: <FileText className="h-3.5 w-3.5" />, element: { ...titleElement, elementId: findBuilderElementForActive(section, titleElement)?.id } });
+    items.push({ key: `${section.id}-benefit-text-${index}`, label: item.text || `Kartentext ${index + 1}`, type: "Kartentext", icon: textIcon, element: { ...textElement, elementId: findBuilderElementForActive(section, textElement)?.id } });
   });
   (section.settings.faqItems ?? []).forEach((item, index) => {
     const questionElement: ActiveBuilderElement = { sectionId: section.id, kind: "text", itemList: "faqItems", itemIndex: index, itemKey: "question" };
