@@ -11,8 +11,26 @@ export const templateVariables = [
   "firma",
   "stadt",
   "anrede",
+  "du",
+  "dein",
+  "deine",
+  "deinen",
+  "deinem",
+  "dir",
+  "dich",
+  "mitDir",
+  "ihr",
+  "euch",
+  "euer",
+  "eure",
+  "euren",
+  "anredeForm",
+  "ansprache",
   "cta",
   "headline",
+  "checkIntro",
+  "watchPrompt",
+  "youReceive",
   "entscheidungstraeger",
   "salutation",
   "fullName",
@@ -419,10 +437,10 @@ export function defaultLandingpageTemplate(): Prisma.LandingpageTemplateCreateIn
     bookingExternalButtonText: "Termin extern öffnen",
     heroEnabled: true,
     heroEyebrow: "Tasklytic",
-    heroHeadline: "Hey {{vorname}}, ich habe dir ein kurzes Video aufgenommen",
+    heroHeadline: "Hey {{vorname}}, ich habe {{dir}} ein kurzes Video aufgenommen",
     heroSubheadline: "Für {{companyName}} in {{city}}",
     heroBodyText:
-      "Ich habe mir {{companyName}} kurz angesehen und zeige dir, wo bei Aufträgen, Abstimmung und Übergaben unnötig Zeit verloren gehen kann.",
+      "Ich habe mir {{companyName}} kurz angesehen und zeige {{dir}}, wo bei Aufträgen, Abstimmung und Übergaben unnötig Zeit verloren gehen kann.",
     heroCtaText: "Gratis Termin vereinbaren",
     heroCtaUrl: "{{calendarUrl}}",
     heroSecondaryCtaText: "Video ansehen",
@@ -432,13 +450,13 @@ export function defaultLandingpageTemplate(): Prisma.LandingpageTemplateCreateIn
     personalVideoEnabled: true,
     personalVideoUrl: null,
     personalVideoThumbnailUrl: null,
-    personalVideoTitle: "Hey {{vorname}}, ich habe dir ein kurzes Video aufgenommen",
+    personalVideoTitle: "Hey {{vorname}}, ich habe {{dir}} ein kurzes Video aufgenommen",
     personalVideoButtonText: "Persönliches Video ansehen",
     explainerVideoEnabled: true,
     explainerVideoUrl: null,
     explainerVideoThumbnailUrl: null,
     explainerVideoTitle:
-      "Wo bei euch täglich Zeit durch manuelle Abläufe verloren geht und wie ihr das in den Griff bekommt. In 90 Sekunden.",
+      "Wo bei {{euch}} täglich Zeit durch manuelle Abläufe verloren geht und wie {{ihr}} das in den Griff bekommt. In 90 Sekunden.",
     explainerVideoSubline: "Ein kurzer Überblick, wie Tasklytic operative Abläufe in Dispo und Backoffice entlastet.",
     explainerVideoButtonText: "Erklärvideo ansehen",
     explainerCtaText: "Termin vereinbaren",
@@ -463,7 +481,7 @@ export function defaultLandingpageTemplate(): Prisma.LandingpageTemplateCreateIn
     faqJson: [
       {
         question: "Ist das eine Standardlösung?",
-        answer: "Nein. Der erste Schritt ist ein kurzer Blick auf eure konkreten Abläufe und vorhandenen Systeme."
+        answer: "Nein. Der erste Schritt ist ein kurzer Blick auf {{eure}} konkreten Abläufe und vorhandenen Systeme."
       },
       {
         question: "Muss direkt ein großes Projekt gestartet werden?",
@@ -473,7 +491,7 @@ export function defaultLandingpageTemplate(): Prisma.LandingpageTemplateCreateIn
     sectionsJson: [],
     globalDesignJson: {},
     finalCtaEnabled: true,
-    finalCtaHeadline: "Lass uns kurz prüfen, ob sich das für {{companyName}} lohnt.",
+    finalCtaHeadline: "{{checkIntro}}, ob sich das für {{companyName}} lohnt.",
     finalCtaText: "Gratis Termin vereinbaren",
     finalCtaUrl: "{{calendarUrl}}",
     footerText: "Tasklytic"
@@ -781,7 +799,7 @@ export function defaultSectionSettings(type: LandingpageSectionType): Landingpag
       menuItem1Text: "Warum wir?",
       menuItem2Text: "Unser Ansatz",
       menuItem3Text: "FAQ",
-      headerCtaText: "Lass uns sprechen {{vorname}}",
+      headerCtaText: "{{cta}} {{vorname}}",
       headerCtaUrl: "{{calendarUrl}}",
       headerAlignment: "left",
       spacingTop: "0",
@@ -791,8 +809,8 @@ export function defaultSectionSettings(type: LandingpageSectionType): Landingpag
   if (type === "hero") {
     return {
       ...base,
-      headline: "Hey {{vorname}}, ich habe dir ein kurzes Video aufgenommen",
-      bodyText: "Ich habe mir {{companyName}} kurz angesehen und zeige dir, wo bei Aufträgen, Abstimmung und Übergaben unnötig Zeit verloren gehen kann.",
+      headline: "Hey {{vorname}}, ich habe {{dir}} ein kurzes Video aufgenommen",
+      bodyText: "Ich habe mir {{companyName}} kurz angesehen und zeige {{dir}}, wo bei Aufträgen, Abstimmung und Übergaben unnötig Zeit verloren gehen kann.",
       ctaText: "Gratis Termin vereinbaren",
       ctaUrl: "{{calendarUrl}}",
       videoUrl: "",
@@ -808,8 +826,8 @@ export function defaultSectionSettings(type: LandingpageSectionType): Landingpag
   if (type === "explainer_video") {
     return {
       ...base,
-      headline: "Wo bei euch täglich Zeit durch manuelle Abläufe verloren geht und wie ihr das in den Griff bekommt. In 90 Sekunden.",
-      subheadline: "Schau dir das kurz an!",
+      headline: "Wo bei {{euch}} täglich Zeit durch manuelle Abläufe verloren geht und wie {{ihr}} das in den Griff bekommt. In 90 Sekunden.",
+      subheadline: "{{watchPrompt}}",
       videoUrl: "",
       thumbnailUrl: "",
       autoplay: false,
@@ -829,7 +847,7 @@ export function defaultSectionSettings(type: LandingpageSectionType): Landingpag
   if (type === "cta") {
     return {
       ...base,
-      headline: "{{vorname}}, wie viel Zeit verliert ihr täglich durch unnötige manuelle Abläufe?",
+      headline: "{{vorname}}, wie viel Zeit verliert {{ihr}} täglich durch unnötige manuelle Abläufe?",
       bodyText: "Lass uns gemeinsam prüfen, welche Abläufe schnell entlastet werden können.",
       ctaText: "{{vorname}}, jetzt Abläufe prüfen!",
       ctaUrl: "{{calendarUrl}}",
@@ -839,7 +857,7 @@ export function defaultSectionSettings(type: LandingpageSectionType): Landingpag
   if (type === "textblock") {
     return {
       ...base,
-      headline: "Lass uns kurz prüfen, ob sich das für {{companyName}} lohnt.",
+      headline: "{{checkIntro}}, ob sich das für {{companyName}} lohnt.",
       bodyText: "",
       ctaText: "Gratis Termin vereinbaren",
       ctaUrl: "{{calendarUrl}}",
@@ -852,7 +870,7 @@ export function defaultSectionSettings(type: LandingpageSectionType): Landingpag
     return { ...base, headline: "Termin vereinbaren", subheadline: "Wähle einen passenden Zeitpunkt aus.", bookingUrl: "{{calendarUrl}}", alignment: "center" };
   }
   if (type === "thank_you") {
-    return { ...base, headline: "Termin erfolgreich gebucht, {{vorname}}!", bodyText: "Vielen Dank für deine Buchung. Du erhältst in Kürze eine Bestätigungsmail mit allen Details zu deinem Termin.", alignment: "center" };
+    return { ...base, headline: "Termin erfolgreich gebucht, {{vorname}}!", bodyText: "Vielen Dank für {{deine}} Buchung. {{youReceive}} in Kürze eine Bestätigungsmail mit allen Details zu {{deinem}} Termin.", alignment: "center" };
   }
   if (type === "legal") {
     return { ...base, legalTab: "impressum", legalMode: "text", legalUrl: "", legalText: "Rechtstext hier einfügen.", alignment: "left" };
@@ -1108,7 +1126,7 @@ export function legacyTemplateSections(template: LandingpageTemplate): Landingpa
         headerLogoPosition: template.headerLogoPosition === "center" ? "center" : "left",
         headerShowTextFallback: template.headerShowTextFallback,
         headerTextFallback: template.headerTextFallback ?? "Tasklytic",
-        headerCtaText: "Lass uns sprechen {{vorname}}",
+        headerCtaText: "{{cta}} {{vorname}}",
         headerCtaUrl: "{{calendarUrl}}"
       }
     },
@@ -1417,60 +1435,62 @@ function renderSectionSettings(
   prospect: ProspectForTemplate,
   template: Pick<LandingpageTemplate, "defaultCtaUrl" | "bookingMode" | "addressForm">
 ): LandingpageSectionSettings {
-  const addressed = applyAddressFormVariants(settings, normalizeAddressForm(template.addressForm));
+  const addressForm = normalizeAddressForm(template.addressForm);
+  const render = (value: string | null | undefined) => renderText(value, prospect, { addressForm });
+  const addressed = applyAddressFormVariants(settings, addressForm);
   return {
     ...addressed,
-    headline: renderText(addressed.headline, prospect),
-    subheadline: renderText(addressed.subheadline, prospect),
-    bodyText: renderText(addressed.bodyText, prospect),
-    ctaText: renderText(addressed.ctaText, prospect),
+    headline: render(addressed.headline),
+    subheadline: render(addressed.subheadline),
+    bodyText: render(addressed.bodyText),
+    ctaText: render(addressed.ctaText),
     ctaUrl: addressed.ctaUrl?.includes("{{calendarUrl}}")
       ? resolveBookingCtaUrl(addressed.ctaUrl, prospect, template)
-      : renderText(addressed.ctaUrl, prospect),
-    logoText: renderText(addressed.logoText, prospect),
-    logoImageUrl: renderText(addressed.logoImageUrl, prospect),
-    logoAlt: renderText(addressed.logoAlt, prospect),
-    logoUrl: renderText(addressed.logoUrl, prospect),
-    headerLogoUrl: renderText(addressed.headerLogoUrl, prospect),
-    headerLogoAlt: renderText(addressed.headerLogoAlt, prospect),
-    headerTextFallback: renderText(addressed.headerTextFallback, prospect),
-    backgroundColor: renderText(addressed.backgroundColor, prospect),
-    gradientFrom: renderText(addressed.gradientFrom, prospect),
-    gradientTo: renderText(addressed.gradientTo, prospect),
-    backgroundImageUrl: renderText(addressed.backgroundImageUrl, prospect),
-    overlayColor: renderText(addressed.overlayColor, prospect),
-    overlayOpacity: renderText(addressed.overlayOpacity, prospect),
-    menuItem1Text: renderText(addressed.menuItem1Text, prospect),
-    menuItem2Text: renderText(addressed.menuItem2Text, prospect),
-    menuItem3Text: renderText(addressed.menuItem3Text, prospect),
-    headerCtaText: renderText(addressed.headerCtaText, prospect),
+      : render(addressed.ctaUrl),
+    logoText: render(addressed.logoText),
+    logoImageUrl: render(addressed.logoImageUrl),
+    logoAlt: render(addressed.logoAlt),
+    logoUrl: render(addressed.logoUrl),
+    headerLogoUrl: render(addressed.headerLogoUrl),
+    headerLogoAlt: render(addressed.headerLogoAlt),
+    headerTextFallback: render(addressed.headerTextFallback),
+    backgroundColor: render(addressed.backgroundColor),
+    gradientFrom: render(addressed.gradientFrom),
+    gradientTo: render(addressed.gradientTo),
+    backgroundImageUrl: render(addressed.backgroundImageUrl),
+    overlayColor: render(addressed.overlayColor),
+    overlayOpacity: render(addressed.overlayOpacity),
+    menuItem1Text: render(addressed.menuItem1Text),
+    menuItem2Text: render(addressed.menuItem2Text),
+    menuItem3Text: render(addressed.menuItem3Text),
+    headerCtaText: render(addressed.headerCtaText),
     headerCtaUrl: addressed.headerCtaUrl?.includes("{{calendarUrl}}")
       ? resolveBookingCtaUrl(addressed.headerCtaUrl, prospect, template)
-      : renderText(addressed.headerCtaUrl, prospect),
-    buttonText: renderText(addressed.buttonText, prospect),
-    videoUrl: renderText(addressed.videoUrl, prospect),
-    videoMobileUrl: renderText(addressed.videoMobileUrl, prospect),
-    videoWebmUrl: renderText(addressed.videoWebmUrl, prospect),
-    thumbnailUrl: renderText(addressed.thumbnailUrl, prospect),
-    videoLabel: renderText(addressed.videoLabel, prospect),
-    bookingUrl: addressed.bookingUrl?.includes("{{calendarUrl}}") ? getBookingUrl(prospect) : renderText(addressed.bookingUrl, prospect),
-    legalUrl: renderText(addressed.legalUrl, prospect),
-    legalText: renderText(addressed.legalText, prospect),
+      : render(addressed.headerCtaUrl),
+    buttonText: render(addressed.buttonText),
+    videoUrl: render(addressed.videoUrl),
+    videoMobileUrl: render(addressed.videoMobileUrl),
+    videoWebmUrl: render(addressed.videoWebmUrl),
+    thumbnailUrl: render(addressed.thumbnailUrl),
+    videoLabel: render(addressed.videoLabel),
+    bookingUrl: addressed.bookingUrl?.includes("{{calendarUrl}}") ? getBookingUrl(prospect) : render(addressed.bookingUrl),
+    legalUrl: render(addressed.legalUrl),
+    legalText: render(addressed.legalText),
     faqItems: safeArray(addressed.faqItems).map((item) => ({
-      question: renderText(item.question, prospect),
-      answer: renderText(item.answer, prospect)
+      question: render(item.question),
+      answer: render(item.answer)
     })),
-    beforeItems: safeArray(addressed.beforeItems).map((item) => renderText(item, prospect)),
-    afterItems: safeArray(addressed.afterItems).map((item) => renderText(item, prospect)),
-    leftTitle: renderText(addressed.leftTitle, prospect),
-    rightTitle: renderText(addressed.rightTitle, prospect),
-    leftItems: safeArray(addressed.leftItems).map((item) => renderText(item, prospect)),
-    rightItems: safeArray(addressed.rightItems).map((item) => renderText(item, prospect)),
-    imageUrl: renderText(addressed.imageUrl, prospect),
-    imageAlt: renderText(addressed.imageAlt, prospect),
+    beforeItems: safeArray(addressed.beforeItems).map((item) => render(item)),
+    afterItems: safeArray(addressed.afterItems).map((item) => render(item)),
+    leftTitle: render(addressed.leftTitle),
+    rightTitle: render(addressed.rightTitle),
+    leftItems: safeArray(addressed.leftItems).map((item) => render(item)),
+    rightItems: safeArray(addressed.rightItems).map((item) => render(item)),
+    imageUrl: render(addressed.imageUrl),
+    imageAlt: render(addressed.imageAlt),
     benefitItems: safeArray(addressed.benefitItems).map((item) => ({
-      title: renderText(item.title, prospect),
-      text: renderText(item.text, prospect)
+      title: render(item.title),
+      text: render(item.text)
     }))
   };
 }
@@ -1479,19 +1499,101 @@ function safeArray<T>(value: T[] | null | undefined): T[] {
   return Array.isArray(value) ? value : [];
 }
 
+const addressCopyVariants: Record<string, Record<AddressForm, string>> = {
+  "Hey {{vorname}}, ich habe {{dir}} ein kurzes Video aufgenommen": {
+    du: "Hey {{vorname}}, ich habe {{dir}} ein kurzes Video aufgenommen",
+    sie: "Hallo {{salutation}} {{lastName}}, ich habe Ihnen ein kurzes Video aufgenommen"
+  },
+  "Hey {{vorname}}, ich habe dir ein kurzes Video aufgenommen": {
+    du: "Hey {{vorname}}, ich habe {{dir}} ein kurzes Video aufgenommen",
+    sie: "Hallo {{salutation}} {{lastName}}, ich habe Ihnen ein kurzes Video aufgenommen"
+  },
+  "Ich habe mir {{companyName}} kurz angesehen und zeige dir, wo bei Aufträgen, Abstimmung und Übergaben unnötig Zeit verloren gehen kann.": {
+    du: "Ich habe mir {{companyName}} kurz angesehen und zeige {{dir}}, wo bei Aufträgen, Abstimmung und Übergaben unnötig Zeit verloren gehen kann.",
+    sie: "Ich habe mir {{companyName}} kurz angesehen und zeige Ihnen, wo bei Aufträgen, Abstimmung und Übergaben unnötig Zeit verloren gehen kann."
+  },
+  "Wo bei euch täglich Zeit durch manuelle Abläufe verloren geht und wie ihr das in den Griff bekommt. In 90 Sekunden.": {
+    du: "Wo bei {{euch}} täglich Zeit durch manuelle Abläufe verloren geht und wie {{ihr}} das in den Griff bekommt. In 90 Sekunden.",
+    sie: "Wo bei Ihnen täglich Zeit durch manuelle Abläufe verloren geht und wie Sie das in den Griff bekommen. In 90 Sekunden."
+  },
+  "Schau dir das kurz an!": {
+    du: "{{watchPrompt}}",
+    sie: "{{watchPrompt}}"
+  },
+  "Lass uns sprechen {{vorname}}": {
+    du: "{{cta}} {{vorname}}",
+    sie: "{{cta}}"
+  },
+  "{{cta}} {{vorname}}": {
+    du: "{{cta}} {{vorname}}",
+    sie: "{{cta}}"
+  },
+  "Lass uns kurz prüfen, ob sich das für {{companyName}} lohnt.": {
+    du: "{{checkIntro}}, ob sich das für {{companyName}} lohnt.",
+    sie: "{{checkIntro}}, ob sich das für {{companyName}} lohnt."
+  },
+  "Lass uns gemeinsam prüfen, welche Abläufe schnell entlastet werden können.": {
+    du: "Lass uns gemeinsam prüfen, welche Abläufe schnell entlastet werden können.",
+    sie: "Lassen Sie uns gemeinsam prüfen, welche Abläufe schnell entlastet werden können."
+  },
+  "{{vorname}}, wie viel Zeit verliert {{ihr}} täglich durch unnötige manuelle Abläufe?": {
+    du: "{{vorname}}, wie viel Zeit verliert {{ihr}} täglich durch unnötige manuelle Abläufe?",
+    sie: "Wie viel Zeit verliert {{companyName}} täglich durch unnötige manuelle Abläufe?"
+  },
+  "Nein. Der erste Schritt ist ein kurzer Blick auf eure konkreten Abläufe und vorhandenen Systeme.": {
+    du: "Nein. Der erste Schritt ist ein kurzer Blick auf {{eure}} konkreten Abläufe und vorhandenen Systeme.",
+    sie: "Nein. Der erste Schritt ist ein kurzer Blick auf Ihre konkreten Abläufe und vorhandenen Systeme."
+  },
+  "Vielen Dank für deine Buchung. Du erhältst in Kürze eine Bestätigungsmail mit allen Details zu deinem Termin.": {
+    du: "Vielen Dank für {{deine}} Buchung. {{youReceive}} in Kürze eine Bestätigungsmail mit allen Details zu {{deinem}} Termin.",
+    sie: "Vielen Dank für Ihre Buchung. Sie erhalten in Kürze eine Bestätigungsmail mit allen Details zu Ihrem Termin."
+  }
+};
+
+function addressCopyVariant(value: string | undefined, addressForm: AddressForm): string | undefined {
+  if (!value) return value;
+  return addressCopyVariants[value.trim()]?.[addressForm] ?? value;
+}
+
 export function applyAddressFormVariants(settings: LandingpageSectionSettings, addressForm: AddressForm): LandingpageSectionSettings {
   const vars = addressFormVariables(addressForm);
-  const replace = (value: string | undefined) => replaceAddressVariables(value, vars);
+  const replace = (value: string | undefined) => replaceAddressVariables(addressCopyVariant(value, addressForm), vars);
+  const addressed: LandingpageSectionSettings = {
+    ...settings,
+    subheadline: replace(settings.subheadline),
+    logoText: replace(settings.logoText),
+    headerTextFallback: replace(settings.headerTextFallback),
+    menuItem1Text: replace(settings.menuItem1Text),
+    menuItem2Text: replace(settings.menuItem2Text),
+    menuItem3Text: replace(settings.menuItem3Text),
+    headerCtaText: replace(settings.headerCtaText),
+    buttonText: replace(settings.buttonText),
+    videoLabel: replace(settings.videoLabel),
+    leftTitle: replace(settings.leftTitle),
+    rightTitle: replace(settings.rightTitle),
+    beforeItems: settings.beforeItems?.map((item) => replace(item) ?? ""),
+    afterItems: settings.afterItems?.map((item) => replace(item) ?? ""),
+    leftItems: settings.leftItems?.map((item) => replace(item) ?? ""),
+    rightItems: settings.rightItems?.map((item) => replace(item) ?? ""),
+    faqItems: settings.faqItems?.map((item) => ({
+      question: replace(item.question) ?? "",
+      answer: replace(item.answer) ?? ""
+    })),
+    benefitItems: settings.benefitItems?.map((item) => ({
+      title: replace(item.title) ?? "",
+      text: replace(item.text) ?? ""
+    }))
+  };
   if (addressForm === "sie") {
     return {
-      ...settings,
+      ...addressed,
       headline: replace(settings.headlineSie || settings.textSie || settings.headline),
       bodyText: replace(settings.bodyTextSie || settings.textSie || settings.bodyText),
       ctaText: replace(settings.ctaTextSie || settings.ctaText)
     };
   }
   return {
-    ...settings,
+    ...addressed,
     headline: replace(settings.headlineDu || settings.textDu || settings.headline),
     bodyText: replace(settings.bodyTextDu || settings.textDu || settings.bodyText),
     ctaText: replace(settings.ctaTextDu || settings.ctaText)
@@ -1536,7 +1638,7 @@ export function buildTemplateVariables(prospect?: LeadForTemplate | null, landin
     companyName,
     stadt: city,
     city,
-    anrede: addressVars?.anrede ?? salutation,
+    anrede: salutation,
     salutation,
     cta: addressVars?.cta ?? "",
     headline: addressVars?.headline ?? "",
@@ -1554,7 +1656,8 @@ export function buildTemplateVariables(prospect?: LeadForTemplate | null, landin
     painSummary: safeProspect.painSummary ?? safeProspect.customPainPoint ?? "",
     businessField: safeProspect.businessFields?.[0] ?? "",
     vehicleCount: safeProspect.vehicleCount?.toString() ?? "",
-    locationsCount: safeProspect.locationsCount?.toString() ?? ""
+    locationsCount: safeProspect.locationsCount?.toString() ?? "",
+    ...(addressVars ?? {})
   };
 }
 
@@ -1587,15 +1690,54 @@ export function renderText(template: string | null | undefined, prospect: LeadFo
 
 function addressFormVariables(addressForm: AddressForm) {
   return addressForm === "sie"
-    ? { anrede: "Sie", cta: "Lassen Sie uns sprechen", headline: "Lassen Sie uns kurz sprechen" }
-    : { anrede: "du", cta: "Lass uns sprechen", headline: "Lass uns kurz sprechen" };
+    ? {
+      anredeForm: "Sie",
+      ansprache: "Sie",
+      cta: "Lassen Sie uns sprechen",
+      headline: "Lassen Sie uns kurz sprechen",
+      checkIntro: "Lassen Sie uns kurz prüfen",
+      watchPrompt: "Schauen Sie sich das kurz an!",
+      youReceive: "Sie erhalten",
+      du: "Sie",
+      dein: "Ihr",
+      deine: "Ihre",
+      deinen: "Ihren",
+      deinem: "Ihrem",
+      dir: "Ihnen",
+      dich: "Sie",
+      mitDir: "mit Ihnen",
+      ihr: "Sie",
+      euch: "Ihnen",
+      euer: "Ihr",
+      eure: "Ihre",
+      euren: "Ihren"
+    }
+    : {
+      anredeForm: "du",
+      ansprache: "du",
+      cta: "Lass uns sprechen",
+      headline: "Lass uns kurz sprechen",
+      checkIntro: "Lass uns kurz prüfen",
+      watchPrompt: "Schau dir das kurz an!",
+      youReceive: "Du erhältst",
+      du: "du",
+      dein: "dein",
+      deine: "deine",
+      deinen: "deinen",
+      deinem: "deinem",
+      dir: "dir",
+      dich: "dich",
+      mitDir: "mit dir",
+      ihr: "ihr",
+      euch: "euch",
+      euer: "euer",
+      eure: "eure",
+      euren: "euren"
+    };
 }
 
 function replaceAddressVariables(value: string | undefined, vars: ReturnType<typeof addressFormVariables>) {
-  return value
-    ?.replace(/{{\s*anrede\s*}}/g, vars.anrede)
-    .replace(/{{\s*cta\s*}}/g, vars.cta)
-    .replace(/{{\s*headline\s*}}/g, vars.headline);
+  return value?.replace(/{{\s*([a-zA-Z0-9_]+)\s*}}/g, (match, key: string) => vars[key as keyof typeof vars] ?? match);
 }
 
 export function splitPersonName(name: string | null | undefined): { firstName?: string; lastName?: string } {
@@ -1661,6 +1803,9 @@ export function resolveBookingCtaUrl(
 }
 
 export function renderLandingpageModel(template: LandingpageTemplate, prospect: ProspectForTemplate) {
+  const addressForm = normalizeAddressForm(template.addressForm);
+  const addressVars = addressFormVariables(addressForm);
+  const render = (value: string | null | undefined) => renderText(replaceAddressVariables(addressCopyVariant(value ?? undefined, addressForm), addressVars), prospect, { addressForm });
   const heroHeadline = prospect.customHeroHeadline || template.heroHeadline;
   const heroSubheadline = prospect.customHeroSubline || template.heroSubheadline;
   const heroBodyText = prospect.customHeroBodyText || template.heroBodyText;
@@ -1674,13 +1819,13 @@ export function renderLandingpageModel(template: LandingpageTemplate, prospect: 
     sections: renderLandingpageSections(template, prospect),
     hero: {
       enabled: template.heroEnabled,
-      eyebrow: renderText(template.heroEyebrow, prospect),
-      headline: renderText(heroHeadline, prospect),
-      subheadline: renderText(heroSubheadline, prospect),
-      bodyText: renderText(heroBodyText, prospect),
-      ctaText: renderText(heroCtaText, prospect),
+      eyebrow: render(template.heroEyebrow),
+      headline: render(heroHeadline),
+      subheadline: render(heroSubheadline),
+      bodyText: render(heroBodyText),
+      ctaText: render(heroCtaText),
       ctaUrl: heroCtaUrl,
-      secondaryCtaText: renderText(template.heroSecondaryCtaText, prospect),
+      secondaryCtaText: render(template.heroSecondaryCtaText),
       secondaryCtaUrl: resolveCtaUrl(template.heroSecondaryCtaUrl, prospect, template),
       layout: template.heroLayout,
       videoPosition: template.heroVideoPosition
@@ -1689,23 +1834,23 @@ export function renderLandingpageModel(template: LandingpageTemplate, prospect: 
       enabled: template.personalVideoEnabled && Boolean(personalVideoUrl),
       url: personalVideoUrl,
       thumbnailUrl: prospect.personalVideoThumbnailUrl || template.personalVideoThumbnailUrl,
-      title: renderText(template.personalVideoTitle, prospect),
-      buttonText: renderText(template.personalVideoButtonText, prospect)
+      title: render(template.personalVideoTitle),
+      buttonText: render(template.personalVideoButtonText)
     },
     explainerVideo: {
       enabled: template.explainerVideoEnabled && Boolean(explainerVideoUrl),
       url: explainerVideoUrl,
       thumbnailUrl: template.explainerVideoThumbnailUrl,
-      title: renderText(template.explainerVideoTitle, prospect),
-      subline: renderText(template.explainerVideoSubline, prospect),
-      buttonText: renderText(template.explainerVideoButtonText, prospect),
-      ctaText: renderText(template.explainerCtaText || template.defaultCtaText, prospect),
+      title: render(template.explainerVideoTitle),
+      subline: render(template.explainerVideoSubline),
+      buttonText: render(template.explainerVideoButtonText),
+      ctaText: render(template.explainerCtaText || template.defaultCtaText),
       ctaUrl: resolveBookingCtaUrl(template.explainerCtaUrl, prospect, template)
     },
     finalCta: {
       enabled: template.finalCtaEnabled,
-      headline: renderText(template.finalCtaHeadline, prospect),
-      text: renderText(template.finalCtaText || template.defaultCtaText, prospect),
+      headline: render(template.finalCtaHeadline),
+      text: render(template.finalCtaText || template.defaultCtaText),
       url: resolveBookingCtaUrl(template.finalCtaUrl, prospect, template)
     }
   };

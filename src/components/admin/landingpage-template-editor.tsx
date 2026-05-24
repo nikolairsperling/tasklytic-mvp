@@ -2,7 +2,7 @@
 
 import type { LandingpageTemplate, Prospect } from "@prisma/client";
 import { useState, useTransition } from "react";
-import { renderLandingpageModel, renderText, templateVariables } from "@/lib/landingpage-templates";
+import { normalizeAddressForm, renderLandingpageModel, renderText, templateVariables } from "@/lib/landingpage-templates";
 
 export function LandingpageTemplateEditor({
   template,
@@ -173,7 +173,7 @@ export function LandingpageTemplateEditor({
             <div className="rounded-2xl bg-white/5 p-4 text-xs text-slate-300">
               Variablen: {templateVariables.map((v) => `{{${v}}}`).join(", ")}
               <br />
-              Gerendert: {renderText(template.heroHeadline, previewProspect)}
+              Gerendert: {renderText(template.heroHeadline, previewProspect, { addressForm: normalizeAddressForm(template.addressForm) })}
             </div>
           </div>
         ) : null}

@@ -266,7 +266,7 @@ function ReportSection({ section, design, landingpageId, slug, reportUrl }: Publ
   const settings = section.settings;
   const isRoi = section.type === "roi_report";
   const title = settings.reportTitle || settings.headline || "Kurzreport herunterladen";
-  const description = settings.reportDescription || settings.bodyText || "Diese Analyse können Sie auch als PDF speichern oder intern weitergeben.";
+  const description = settings.reportDescription || settings.bodyText || "Diese Analyse kann auch als PDF gespeichert oder intern weitergegeben werden.";
   const buttonStyle = {
     backgroundColor: landingDesignTokens.colors.primary,
     color: "#ffffff",

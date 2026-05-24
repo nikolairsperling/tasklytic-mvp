@@ -113,6 +113,15 @@ describe("landingpage template rendering", () => {
     expect(renderText("{{anrede}} {{nachname}}", baseProspect)).toBe("Herr Bauer");
   });
 
+  it("renders du/sie address variables without changing salutations", () => {
+    expect(renderText("{{anrede}} {{nachname}}: {{deine}} Abläufe helfen {{dir}}. {{watchPrompt}}", baseProspect, { addressForm: "sie" })).toBe(
+      "Herr Bauer: Ihre Abläufe helfen Ihnen. Schauen Sie sich das kurz an!"
+    );
+    expect(renderText("{{anrede}} {{nachname}}: {{deine}} Abläufe helfen {{dir}}. {{watchPrompt}}", baseProspect, { addressForm: "du" })).toBe(
+      "Herr Bauer: deine Abläufe helfen dir. Schau dir das kurz an!"
+    );
+  });
+
   it("renders Du address form placeholders", () => {
     expect(renderText("Hey {{firstName}}, ich habe dir ein kurzes Video aufgenommen.", baseProspect)).toBe(
       "Hey Max, ich habe dir ein kurzes Video aufgenommen."
@@ -143,6 +152,15 @@ describe("landingpage template rendering", () => {
     const model = renderLandingpageModel(template(), baseProspect);
     expect(model.hero.headline).toContain("Max");
     expect(model.personalVideo.enabled).toBe(false);
+  });
+
+  it("renders legacy default copy in the selected address form", () => {
+    const sections = renderLandingpageSections({ ...template(), addressForm: "sie" }, baseProspect);
+    const hero = sections.find((section) => section.type === "hero");
+    const explainer = sections.find((section) => section.type === "explainer_video");
+    expect(hero?.settings.headline).toBe("Hallo Herr Bauer, ich habe Ihnen ein kurzes Video aufgenommen");
+    expect(hero?.settings.bodyText).toContain("zeige Ihnen");
+    expect(explainer?.settings.headline).toContain("wie Sie das in den Griff bekommen");
   });
 
   it("shows personal video when URL exists and hides it when disabled", () => {

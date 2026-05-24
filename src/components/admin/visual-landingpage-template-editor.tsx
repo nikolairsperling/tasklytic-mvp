@@ -148,7 +148,7 @@ export function VisualLandingpageTemplateEditor({
   const renderedSections = useMemo(() => {
     return sections
       .filter((section) => section.enabled)
-      .map((section) => renderSectionForPreview({ ...section, settings: applyAddressFormVariants(section.settings, addressForm) }, activePreviewLead));
+      .map((section) => renderSectionForPreview(section, activePreviewLead, addressForm));
   }, [activePreviewLead, addressForm, sections]);
   const filteredBuilderElements = useMemo(() => {
     const query = elementQuery.trim().toLowerCase();
@@ -975,7 +975,7 @@ function HeaderSection({ section, activeElement, globalDesign, onEdit, onOpenPop
           );
         })}
       </nav>
-      <ButtonBlock section={section} field="headerCtaText" selected={headerButtonSelected} text={settings.headerCtaText || "Lass uns sprechen"} globalDesign={globalDesign} activeElement={activeElement} device={device} onEdit={onEdit} onOpenPopup={onOpenPopup} onDuplicate={onDuplicate} onDelete={onDelete} onMove={onMove} onInlineChange={onInlineChange} />
+      <ButtonBlock section={section} field="headerCtaText" selected={headerButtonSelected} text={settings.headerCtaText || "Termin vereinbaren"} globalDesign={globalDesign} activeElement={activeElement} device={device} onEdit={onEdit} onOpenPopup={onOpenPopup} onDuplicate={onDuplicate} onDelete={onDelete} onMove={onMove} onInlineChange={onInlineChange} />
     </div>
   );
 }
@@ -1005,7 +1005,7 @@ function ExplainerSection({ section, activeElement, globalDesign, device, onEdit
   return (
     <div className="mx-auto max-w-5xl py-4 text-center">
       <EditableText section={section} activeElement={activeElement} field="headline" device={device} className="mx-auto max-w-4xl break-words" onEdit={onEdit} onOpenPopup={onOpenPopup} onDuplicate={onDuplicate} onDelete={onDelete} onMove={onMove} onInlineChange={onInlineChange}>{settings.headline}</EditableText>
-      <EditableText section={section} activeElement={activeElement} field="subheadline" device={device} className="mx-auto mt-5 inline-block rounded-full border border-slate-200 bg-white px-4 py-2 shadow-sm" onEdit={onEdit} onOpenPopup={onOpenPopup} onDuplicate={onDuplicate} onDelete={onDelete} onMove={onMove} onInlineChange={onInlineChange}>{settings.subheadline || "Schau dir das kurz an!"}</EditableText>
+      <EditableText section={section} activeElement={activeElement} field="subheadline" device={device} className="mx-auto mt-5 inline-block rounded-full border border-slate-200 bg-white px-4 py-2 shadow-sm" onEdit={onEdit} onOpenPopup={onOpenPopup} onDuplicate={onDuplicate} onDelete={onDelete} onMove={onMove} onInlineChange={onInlineChange}>{settings.subheadline || "Kurzer Überblick"}</EditableText>
         {settings.showArrowEmoji === false ? null : <div className="mt-4 text-3xl">↓</div>}
       <ElementChrome selected={isSameElement(activeElement, { sectionId: section.id, field: "videoUrl", kind: "video", elementId: findBuilderElementByField(section, "videoUrl")?.id })} element={{ sectionId: section.id, field: "videoUrl", kind: "video", elementId: findBuilderElementByField(section, "videoUrl")?.id }} onEdit={onEdit} onOpenPopup={onOpenPopup} onDuplicate={onDuplicate} onDelete={onDelete} onMove={onMove}><div role="button" tabIndex={0} onClick={(event) => { event.stopPropagation(); onEdit(section.id, "videoUrl", "video"); }} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") onEdit(section.id, "videoUrl", "video"); }} className="mx-auto mt-7 block max-w-4xl rounded-[28px] text-left outline-none"><VideoBox settings={settings} elementStyle={findBuilderElementByField(section, "videoUrl")?.style} globalDesign={globalDesign} label={settings.buttonText || "Video ansehen"} large /></div></ElementChrome>
       <ButtonAlign settings={settings} className="mt-7">
@@ -1636,7 +1636,7 @@ function ThankYouPreview({ section, prospect }: { section?: LandingpageSection; 
       <div className="max-w-2xl">
         <div className="mx-auto grid h-20 w-20 place-items-center rounded-full bg-emerald-100 text-4xl text-emerald-700">✓</div>
         <h1 className="mt-8 text-5xl font-semibold text-slate-950">{settings.headline || `Termin erfolgreich gebucht, ${prospect?.firstName ?? ""}!`}</h1>
-        <p className="mt-5 text-lg leading-8 text-slate-600">{settings.bodyText || "Vielen Dank für deine Buchung. Du erhältst in Kürze eine Bestätigungsmail mit allen Details zu deinem Termin."}</p>
+        <p className="mt-5 text-lg leading-8 text-slate-600">{settings.bodyText || "Vielen Dank für die Buchung. Die Bestätigungsmail mit allen Termindetails wird in Kürze versendet."}</p>
         <a href="#" className="mt-8 inline-flex rounded-full bg-slate-950 px-5 py-3 text-sm font-bold text-white">Zurück zur Startseite</a>
       </div>
     </div>
@@ -3235,25 +3235,27 @@ function stripDashes(value: string) {
   return value.replace(/[–—]/g, "-");
 }
 
-function renderSectionForPreview(section: LandingpageSection, prospect: LeadForTemplate): LandingpageSection {
+function renderSectionForPreview(section: LandingpageSection, prospect: LeadForTemplate, addressForm: AddressForm): LandingpageSection {
+  const settings = renderSettings(applyAddressFormVariants(section.settings, addressForm), prospect, addressForm);
   return {
     ...section,
-    settings: renderSettings(section.settings, prospect),
+    settings,
     containers: section.containers?.map((container) => ({
       ...container,
       columns: container.columns.map((column) => ({
         ...column,
-        elements: column.elements.map((element) => renderBuilderElementForPreview(element, prospect))
+        elements: column.elements.map((element) => renderBuilderElementForPreview(element, prospect, addressForm, settings))
       }))
     }))
   };
 }
 
-function renderBuilderElementForPreview(element: BuilderElement, prospect: LeadForTemplate): BuilderElement {
+function renderBuilderElementForPreview(element: BuilderElement, prospect: LeadForTemplate, addressForm: AddressForm, settings: LandingpageSectionSettings): BuilderElement {
+  const addressedProps = addressBuilderElementProps(element.props ?? {}, addressForm, settings);
   const props = Object.fromEntries(
-    Object.entries(element.props ?? {}).map(([key, value]) => [
+    Object.entries(addressedProps).map(([key, value]) => [
       key,
-      typeof value === "string" ? resolveTemplateVariables(value, prospect) : value
+      typeof value === "string" ? resolveTemplateVariables(value, { lead: prospect, addressForm }) : value
     ])
   );
   const source = element as BuilderElement & { elements?: BuilderElement[]; children?: BuilderElement[] };
@@ -3261,46 +3263,68 @@ function renderBuilderElementForPreview(element: BuilderElement, prospect: LeadF
     ...element,
     editable: true,
     props,
-    ...(Array.isArray(source.elements) ? { elements: source.elements.map((child) => renderBuilderElementForPreview(child, prospect)) } : {}),
-    ...(Array.isArray(source.children) ? { children: source.children.map((child) => renderBuilderElementForPreview(child, prospect)) } : {})
+    ...(Array.isArray(source.elements) ? { elements: source.elements.map((child) => renderBuilderElementForPreview(child, prospect, addressForm, settings)) } : {}),
+    ...(Array.isArray(source.children) ? { children: source.children.map((child) => renderBuilderElementForPreview(child, prospect, addressForm, settings)) } : {})
   };
 }
 
-function renderSettings(settings: LandingpageSectionSettings, prospect: LeadForTemplate): LandingpageSectionSettings {
+function addressBuilderElementProps(props: Record<string, unknown>, addressForm: AddressForm, settings: LandingpageSectionSettings) {
+  const next = { ...props };
+  const variantText = addressForm === "sie" ? stringProp(props.textSie) : stringProp(props.textDu);
+  if (variantText) next.text = variantText;
+  const field = typeof props.field === "string" ? props.field as keyof LandingpageSectionSettings : null;
+  if (field && typeof settings[field] === "string") next.text = settings[field];
+  if (props.itemList === "faqItems" && typeof props.itemIndex === "number") {
+    const item = settings.faqItems?.[props.itemIndex];
+    if (props.itemKey === "answer") next.text = item?.answer ?? next.text;
+    else next.text = item?.question ?? next.text;
+  }
+  if (props.itemList === "benefitItems" && typeof props.itemIndex === "number") {
+    const item = settings.benefitItems?.[props.itemIndex];
+    next.text = props.itemKey === "text" ? item?.text ?? next.text : item?.title ?? next.text;
+  }
+  if ((props.itemList === "leftItems" || props.itemList === "rightItems" || props.itemList === "beforeItems" || props.itemList === "afterItems") && typeof props.itemIndex === "number") {
+    const list = settings[props.itemList] ?? [];
+    next.text = list[props.itemIndex] ?? next.text;
+  }
+  return next;
+}
+
+function renderSettings(settings: LandingpageSectionSettings, prospect: LeadForTemplate, addressForm: AddressForm): LandingpageSectionSettings {
   return {
     ...settings,
-    logoText: renderText(settings.logoText, prospect),
-    logoImageUrl: renderText(settings.logoImageUrl, prospect),
-    logoAlt: renderText(settings.logoAlt, prospect),
-    logoUrl: renderText(settings.logoUrl, prospect),
-    headerLogoUrl: renderText(settings.headerLogoUrl, prospect),
-    headerLogoAlt: renderText(settings.headerLogoAlt, prospect),
-    headerTextFallback: renderText(settings.headerTextFallback, prospect),
-    menuItem1Text: renderText(settings.menuItem1Text, prospect),
-    menuItem2Text: renderText(settings.menuItem2Text, prospect),
-    menuItem3Text: renderText(settings.menuItem3Text, prospect),
-    headerCtaText: renderText(settings.headerCtaText, prospect),
-    headerCtaUrl: renderText(settings.headerCtaUrl, prospect),
-    headline: renderText(settings.headline, prospect),
-    subheadline: renderText(settings.subheadline, prospect),
-    bodyText: renderText(settings.bodyText, prospect),
-    ctaText: renderText(settings.ctaText, prospect),
-    ctaUrl: renderText(settings.ctaUrl, prospect),
-    videoUrl: renderText(settings.videoUrl, prospect),
-    thumbnailUrl: renderText(settings.thumbnailUrl, prospect),
-    videoLabel: renderText(settings.videoLabel, prospect),
-    bookingUrl: renderText(settings.bookingUrl, prospect),
-    legalUrl: renderText(settings.legalUrl, prospect),
-    legalText: renderText(settings.legalText, prospect),
-    imageUrl: renderText(settings.imageUrl, prospect),
-    imageAlt: renderText(settings.imageAlt, prospect),
-    faqItems: settings.faqItems?.map((item) => ({ question: renderText(item.question, prospect), answer: renderText(item.answer, prospect) })),
-    benefitItems: settings.benefitItems?.map((item) => ({ title: renderText(item.title, prospect), text: renderText(item.text, prospect) })),
-    beforeItems: settings.beforeItems?.map((item) => renderText(item, prospect)),
-    afterItems: settings.afterItems?.map((item) => renderText(item, prospect)),
-    leftTitle: renderText(settings.leftTitle, prospect),
-    rightTitle: renderText(settings.rightTitle, prospect),
-    leftItems: settings.leftItems?.map((item) => renderText(item, prospect)),
-    rightItems: settings.rightItems?.map((item) => renderText(item, prospect))
+    logoText: renderText(settings.logoText, prospect, { addressForm }),
+    logoImageUrl: renderText(settings.logoImageUrl, prospect, { addressForm }),
+    logoAlt: renderText(settings.logoAlt, prospect, { addressForm }),
+    logoUrl: renderText(settings.logoUrl, prospect, { addressForm }),
+    headerLogoUrl: renderText(settings.headerLogoUrl, prospect, { addressForm }),
+    headerLogoAlt: renderText(settings.headerLogoAlt, prospect, { addressForm }),
+    headerTextFallback: renderText(settings.headerTextFallback, prospect, { addressForm }),
+    menuItem1Text: renderText(settings.menuItem1Text, prospect, { addressForm }),
+    menuItem2Text: renderText(settings.menuItem2Text, prospect, { addressForm }),
+    menuItem3Text: renderText(settings.menuItem3Text, prospect, { addressForm }),
+    headerCtaText: renderText(settings.headerCtaText, prospect, { addressForm }),
+    headerCtaUrl: renderText(settings.headerCtaUrl, prospect, { addressForm }),
+    headline: renderText(settings.headline, prospect, { addressForm }),
+    subheadline: renderText(settings.subheadline, prospect, { addressForm }),
+    bodyText: renderText(settings.bodyText, prospect, { addressForm }),
+    ctaText: renderText(settings.ctaText, prospect, { addressForm }),
+    ctaUrl: renderText(settings.ctaUrl, prospect, { addressForm }),
+    videoUrl: renderText(settings.videoUrl, prospect, { addressForm }),
+    thumbnailUrl: renderText(settings.thumbnailUrl, prospect, { addressForm }),
+    videoLabel: renderText(settings.videoLabel, prospect, { addressForm }),
+    bookingUrl: renderText(settings.bookingUrl, prospect, { addressForm }),
+    legalUrl: renderText(settings.legalUrl, prospect, { addressForm }),
+    legalText: renderText(settings.legalText, prospect, { addressForm }),
+    imageUrl: renderText(settings.imageUrl, prospect, { addressForm }),
+    imageAlt: renderText(settings.imageAlt, prospect, { addressForm }),
+    faqItems: settings.faqItems?.map((item) => ({ question: renderText(item.question, prospect, { addressForm }), answer: renderText(item.answer, prospect, { addressForm }) })),
+    benefitItems: settings.benefitItems?.map((item) => ({ title: renderText(item.title, prospect, { addressForm }), text: renderText(item.text, prospect, { addressForm }) })),
+    beforeItems: settings.beforeItems?.map((item) => renderText(item, prospect, { addressForm })),
+    afterItems: settings.afterItems?.map((item) => renderText(item, prospect, { addressForm })),
+    leftTitle: renderText(settings.leftTitle, prospect, { addressForm }),
+    rightTitle: renderText(settings.rightTitle, prospect, { addressForm }),
+    leftItems: settings.leftItems?.map((item) => renderText(item, prospect, { addressForm })),
+    rightItems: settings.rightItems?.map((item) => renderText(item, prospect, { addressForm }))
   };
 }

@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { CTAButton } from "@/components/landing/CTAButton";
 import { LandingPageLayout } from "@/components/landing/LandingPageLayout";
 import { Logo } from "@/components/landing/Logo";
-import { getActiveTemplate, getBookingUrl, getGlobalLandingpageDesign, renderText } from "@/lib/landingpage-templates";
+import { getActiveTemplate, getBookingUrl, getGlobalLandingpageDesign, normalizeAddressForm, renderText } from "@/lib/landingpage-templates";
 import { prisma } from "@/lib/prisma";
 import { ProspectActivityTracker } from "@/components/landing/prospect-activity-tracker";
 
@@ -21,8 +21,10 @@ export default async function BookingPage({ params }: BookingPageProps) {
   const template = await getActiveTemplate(prospect);
   const design = getGlobalLandingpageDesign(template);
   const bookingUrl = getBookingUrl(prospect);
-  const headline = renderText(template.bookingHeadline, prospect) || `Termin mit Tasklytic vereinbaren`;
-  const subheadline = renderText(template.bookingSubheadline, prospect) || `Wähle einen passenden Zeitpunkt auf der externen Buchungsseite.`;
+  const addressForm = normalizeAddressForm(template.addressForm);
+  const render = (value: string | null | undefined) => renderText(value, prospect, { addressForm });
+  const headline = render(template.bookingHeadline) || `Termin mit Tasklytic vereinbaren`;
+  const subheadline = render(template.bookingSubheadline) || `Wähle einen passenden Zeitpunkt auf der externen Buchungsseite.`;
 
   return (
     <LandingPageLayout design={design}>
@@ -30,7 +32,7 @@ export default async function BookingPage({ params }: BookingPageProps) {
       <header className="border-b border-slate-200 bg-white px-6 py-5">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4">
           <Link href={`/p/${slug}`} className="text-sm font-medium text-slate-600">
-            ← {renderText(template.bookingBackText, prospect) || "Zurück zur Landingpage"}
+            ← {render(template.bookingBackText) || "Zurück zur Landingpage"}
           </Link>
           <Logo src={template.headerLogoUrl || template.logoUrl} alt={template.headerLogoAlt || "Tasklytic"} text={template.headerTextFallback || "Tasklytic"} width={template.headerLogoWidth} height={template.headerLogoHeight} />
         </div>
@@ -54,16 +56,16 @@ export default async function BookingPage({ params }: BookingPageProps) {
 
           {bookingUrl ? (
             <div className="mt-6">
-              <p className="text-sm text-slate-500">Falls der Kalender hier nicht lädt, öffne ihn direkt.</p>
+              <p className="text-sm text-slate-500">Falls der Kalender hier nicht lädt, bitte direkt öffnen.</p>
               <div className="mt-3 flex justify-center">
-                <CTAButton href={bookingUrl} text={renderText(template.bookingExternalButtonText, prospect) || "Termin extern öffnen"} />
+                <CTAButton href={bookingUrl} text={render(template.bookingExternalButtonText) || "Termin extern öffnen"} />
               </div>
             </div>
           ) : null}
         </div>
       </section>
 
-      <footer className="px-6 py-8 text-center text-sm text-slate-500">{renderText(template.footerText, prospect) || "Tasklytic"}</footer>
+      <footer className="px-6 py-8 text-center text-sm text-slate-500">{render(template.footerText) || "Tasklytic"}</footer>
     </LandingPageLayout>
   );
 }

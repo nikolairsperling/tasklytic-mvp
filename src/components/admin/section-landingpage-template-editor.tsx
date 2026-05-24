@@ -6,11 +6,13 @@ import { VideoPreview as SharedVideoPreview } from "@/components/landing/video-p
 import { videoPreviewPropsFromSettings } from "@/lib/landingpage/video-preview-props";
 import {
   addLandingpageSection,
+  applyAddressFormVariants,
   deleteLandingpageSection,
   getGlobalLandingpageDesign,
   getLandingpageSections,
   landingpageSectionTypes,
   moveLandingpageSection,
+  normalizeAddressForm,
   renderText,
   toggleLandingpageSection,
   type GlobalLandingpageDesign,
@@ -69,9 +71,9 @@ export function SectionLandingpageTemplateEditor({
       .filter((section) => section.enabled)
       .map((section) => ({
         ...section,
-        settings: renderSettings(section.settings, previewProspect)
+        settings: renderSettings(applyAddressFormVariants(section.settings, normalizeAddressForm(template.addressForm)), previewProspect, normalizeAddressForm(template.addressForm))
       }));
-  }, [previewProspect, sections]);
+  }, [previewProspect, sections, template.addressForm]);
 
   function replaceSections(next: LandingpageSection[]) {
     setSections(next);
@@ -432,19 +434,20 @@ function lines(value: string) {
   return value.split("\n").map((line) => line.trim()).filter(Boolean);
 }
 
-function renderSettings(settings: LandingpageSectionSettings, prospect: Prospect): LandingpageSectionSettings {
+function renderSettings(settings: LandingpageSectionSettings, prospect: Prospect, addressForm: "du" | "sie"): LandingpageSectionSettings {
+  const render = (value: string | null | undefined) => renderText(value, prospect, { addressForm });
   return {
     ...settings,
-    headline: renderText(settings.headline, prospect),
-    subheadline: renderText(settings.subheadline, prospect),
-    bodyText: renderText(settings.bodyText, prospect),
-    ctaText: renderText(settings.ctaText, prospect),
-    reportTitle: renderText(settings.reportTitle, prospect),
-    reportDescription: renderText(settings.reportDescription, prospect),
-    reportButtonText: renderText(settings.reportButtonText, prospect),
-    faqItems: settings.faqItems?.map((item) => ({ question: renderText(item.question, prospect), answer: renderText(item.answer, prospect) })),
-    beforeItems: settings.beforeItems?.map((item) => renderText(item, prospect)),
-    afterItems: settings.afterItems?.map((item) => renderText(item, prospect))
+    headline: render(settings.headline),
+    subheadline: render(settings.subheadline),
+    bodyText: render(settings.bodyText),
+    ctaText: render(settings.ctaText),
+    reportTitle: render(settings.reportTitle),
+    reportDescription: render(settings.reportDescription),
+    reportButtonText: render(settings.reportButtonText),
+    faqItems: settings.faqItems?.map((item) => ({ question: render(item.question), answer: render(item.answer) })),
+    beforeItems: settings.beforeItems?.map((item) => render(item)),
+    afterItems: settings.afterItems?.map((item) => render(item))
   };
 }
 
