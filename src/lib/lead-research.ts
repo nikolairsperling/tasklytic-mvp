@@ -1,5 +1,6 @@
 import type { Prisma, Prospect } from "@prisma/client";
 import { getEffectiveOpenAiApiKey } from "@/lib/integrations";
+import { buildCompanyDescription, buildPainHypothesis, cleanLeadText, contactCandidatesFromPossiblyMergedName, looksLikeAmbiguousMergedName, stateFromGermanPostalCode } from "@/lib/lead-data-quality";
 import { getTargetGroupOrDefault, type TargetGroupLike, targetGroupContextText } from "@/lib/target-groups";
 import { requireOfferForProspect, userOfferContextText } from "@/lib/user-offer";
 
@@ -178,6 +179,11 @@ export async function researchProspect(prospect: Prospect, fetcher: typeof fetch
 }
 
 export function buildResearchUpdate(prospect: Prospect, result: LeadResearchResult): LeadResearchUpdate {
+  const cleanPainSummary = cleanLeadText(result.painSummary, 4) ?? buildPainHypothesis({ ...prospect, ...result });
+  const cleanCompanyDescription = cleanLeadText(result.companyDescription, 2) ?? buildCompanyDescription({ ...prospect, ...result });
+  const cleanCompanyProfileSummary = cleanLeadText(result.companyProfileSummary, 3);
+  const contactCandidates = contactCandidatesFromPossiblyMergedName(result.decisionMakerName);
+  const shouldStoreCandidateOnly = typeof result.decisionMakerName === "string" && looksLikeAmbiguousMergedName(result.decisionMakerName);
   const data: Prisma.ProspectUncheckedUpdateInput = {
     researchStatus: result.researchStatus,
     researchSources: result.researchSources as Prisma.InputJsonValue,
@@ -199,23 +205,35 @@ export function buildResearchUpdate(prospect: Prospect, result: LeadResearchResu
   fillText(data, updatedFields, "street", prospect.street, result.street);
   fillText(data, updatedFields, "postalCode", prospect.postalCode, result.postalCode);
   fillText(data, updatedFields, "city", prospect.city, result.city);
+  fillText(data, updatedFields, "state", prospect.state, stateFromGermanPostalCode(result.postalCode ?? prospect.postalCode));
   fillCountry(data, updatedFields, prospect.country, result.country);
   fillText(data, updatedFields, "generalContactLabel", prospect.generalContactLabel, result.generalContactLabel);
   fillText(data, updatedFields, "linkedinUrl", prospect.linkedinUrl, result.linkedinUrl);
   fillText(data, updatedFields, "decisionMakerRole", prospect.decisionMakerRole, result.decisionMakerRole);
   fillText(data, updatedFields, "decisionMakerEmail", prospect.decisionMakerEmail, result.decisionMakerEmail);
   fillText(data, updatedFields, "decisionMakerPhone", prospect.decisionMakerPhone, result.decisionMakerPhone);
-  fillPersonText(data, updatedFields, "decisionMakerName", prospect.decisionMakerName, result.decisionMakerName);
-  fillPersonText(data, updatedFields, "firstName", prospect.firstName, result.firstName);
-  fillPersonText(data, updatedFields, "lastName", prospect.lastName, result.lastName);
+  if (shouldStoreCandidateOnly) {
+    if (prospect.decisionMakerName && !isValidPersonField("decisionMakerName", prospect.decisionMakerName)) {
+      data.decisionMakerName = null;
+      updatedFields.push("decisionMakerName");
+    }
+    if (contactCandidates.length > 0 && isEmptyJsonArray(prospect.contactCandidates)) {
+      data.contactCandidates = contactCandidates as Prisma.InputJsonValue;
+      updatedFields.push("contactCandidates");
+    }
+  } else {
+    fillPersonText(data, updatedFields, "decisionMakerName", prospect.decisionMakerName, result.decisionMakerName);
+    fillPersonText(data, updatedFields, "firstName", prospect.firstName, result.firstName);
+    fillPersonText(data, updatedFields, "lastName", prospect.lastName, result.lastName);
+  }
   fillText(data, updatedFields, "industry", prospect.industry, result.industry);
   fillReplaceableText(data, updatedFields, "painType", prospect.painType, result.painType, isInvalidPainType);
-  fillText(data, updatedFields, "painSummary", prospect.painSummary, result.painSummary);
+  fillReplaceableText(data, updatedFields, "painSummary", prospect.painSummary, cleanPainSummary, (value) => cleanLeadText(value, 4) === null);
   fillText(data, updatedFields, "personalizationAngle", prospect.personalizationAngle, result.personalizationAngle);
-  fillReplaceableText(data, updatedFields, "companyDescription", prospect.companyDescription, result.companyDescription, (value) => !isValidCompanyDescription(value));
+  fillReplaceableText(data, updatedFields, "companyDescription", prospect.companyDescription, cleanCompanyDescription, (value) => !isValidCompanyDescription(value) || cleanLeadText(value, 2) === null);
   fillText(data, updatedFields, "specialization", prospect.specialization, result.specialization);
   fillText(data, updatedFields, "targetCustomers", prospect.targetCustomers, result.targetCustomers);
-  fillReplaceableText(data, updatedFields, "companyProfileSummary", prospect.companyProfileSummary, result.companyProfileSummary, (value) => isBoilerplateText(value));
+  fillReplaceableText(data, updatedFields, "companyProfileSummary", prospect.companyProfileSummary, cleanCompanyProfileSummary, (value) => isBoilerplateText(value) || cleanLeadText(value, 3) === null);
   fillText(data, updatedFields, "companySizeLabel", prospect.companySizeLabel === "unknown" ? null : prospect.companySizeLabel, result.companySizeLabel === "unknown" ? null : result.companySizeLabel);
   fillNumber(data, updatedFields, "icpFitScore", prospect.icpFitScore, result.icpFitScore);
   fillText(data, updatedFields, "icpFitLabel", prospect.icpFitScore > 0 ? prospect.icpFitLabel : null, result.icpFitLabel);

@@ -17,9 +17,10 @@ import {
   type LandingpageSectionSettings,
   type ResponsiveStyle
 } from "@/lib/landingpage-templates";
+import { sanitizeIframeEmbedCode } from "@/lib/booking-embed";
 
 export type BuilderDevice = "desktop" | "tablet" | "mobile";
-export type BuilderElementKind = "section" | "text" | "button" | "video" | "link" | "logo" | "list_item";
+export type BuilderElementKind = "section" | "text" | "button" | "video" | "link" | "logo" | "list_item" | "booking";
 
 export type ActiveBuilderElement = {
   sectionId: string;
@@ -585,9 +586,40 @@ function sanitizeSectionSettings(settings: LandingpageSectionSettings): Landingp
     thumbnailUrl: sanitizeUrl(settings.thumbnailUrl),
     buttonText: sanitizeText(settings.buttonText),
     videoLabel: sanitizeText(settings.videoLabel),
+    bookingMode: sanitizeBookingMode(settings.bookingMode),
+    bookingSource: sanitizeBookingSource(settings.bookingSource),
+    bookingCalendarId: sanitizeText(settings.bookingCalendarId),
+    bookingProvider: sanitizeBookingProvider(settings.bookingProvider),
+    bookingCalendarName: sanitizeText(settings.bookingCalendarName),
     bookingUrl: sanitizeUrl(settings.bookingUrl),
+    bookingEmbedUrl: sanitizeUrl(settings.bookingEmbedUrl),
+    bookingEmbedCode: sanitizeIframeEmbedCode(settings.bookingEmbedCode),
+    bookingTimezone: sanitizeText(settings.bookingTimezone),
+    bookingButtonText: sanitizeText(settings.bookingButtonText),
+    bookingThankYouUrl: sanitizeUrl(settings.bookingThankYouUrl),
+    bookingCalendarActive: settings.bookingCalendarActive !== false,
+    bookingShowBackButton: settings.bookingShowBackButton !== false,
+    bookingCalendarBorderColor: sanitizeText(settings.bookingCalendarBorderColor),
+    bookingCalendarBackgroundColor: sanitizeText(settings.bookingCalendarBackgroundColor),
+    bookingCalendarTextColor: sanitizeText(settings.bookingCalendarTextColor),
+    bookingCalendarActiveDayColor: sanitizeText(settings.bookingCalendarActiveDayColor),
+    bookingCalendarActiveTextColor: sanitizeText(settings.bookingCalendarActiveTextColor),
+    bookingCalendarButtonColor: sanitizeText(settings.bookingCalendarButtonColor),
+    bookingCalendarButtonTextColor: sanitizeText(settings.bookingCalendarButtonTextColor),
+    bookingCalendarBorderRadius: sanitizeText(settings.bookingCalendarBorderRadius),
+    bookingCalendarInputRadius: sanitizeText(settings.bookingCalendarInputRadius),
+    bookingCalendarInputBorderWidth: sanitizeText(settings.bookingCalendarInputBorderWidth),
+    bookingCalendarWidth: sanitizeText(settings.bookingCalendarWidth),
+    bookingCalendarHeight: sanitizeText(settings.bookingCalendarHeight),
+    bookingCalendarSpacingTop: sanitizeText(settings.bookingCalendarSpacingTop),
+    bookingCalendarSpacingBottom: sanitizeText(settings.bookingCalendarSpacingBottom),
     legalUrl: sanitizeUrl(settings.legalUrl),
     legalText: sanitizeText(settings.legalText),
+    legalImprintText: sanitizeText(settings.legalImprintText),
+    legalPrivacyText: sanitizeText(settings.legalPrivacyText),
+    legalProcessingText: sanitizeText(settings.legalProcessingText),
+    legalTermsText: sanitizeText(settings.legalTermsText),
+    legalDisclaimerText: sanitizeText(settings.legalDisclaimerText),
     imageUrl: sanitizeUrl(settings.imageUrl),
     imageAlt: sanitizeText(settings.imageAlt),
     leftTitle: sanitizeText(settings.leftTitle),
@@ -627,6 +659,21 @@ function sanitizeBackgroundSize(value: LandingpageSectionSettings["backgroundSiz
 
 function sanitizeBackgroundPosition(value: LandingpageSectionSettings["backgroundPosition"]): NonNullable<LandingpageSectionSettings["backgroundPosition"]> {
   return value === "top" || value === "bottom" || value === "left" || value === "right" ? value : "center";
+}
+
+function sanitizeBookingMode(value: LandingpageSectionSettings["bookingMode"]): NonNullable<LandingpageSectionSettings["bookingMode"]> {
+  if (value === "external_link" || value === "embedded_scroll") return value;
+  return "embedded_page";
+}
+
+function sanitizeBookingSource(value: LandingpageSectionSettings["bookingSource"]): NonNullable<LandingpageSectionSettings["bookingSource"]> {
+  if (value === "tidycal" || value === "cal_com" || value === "custom_embed" || value === "external_url") return value;
+  return "global_default";
+}
+
+function sanitizeBookingProvider(value: LandingpageSectionSettings["bookingProvider"]): NonNullable<LandingpageSectionSettings["bookingProvider"]> {
+  if (value === "calendly" || value === "tidycal" || value === "cal_com" || value === "microsoft_bookings") return value;
+  return "custom";
 }
 
 export function sanitizeText(value: string | null | undefined): string {

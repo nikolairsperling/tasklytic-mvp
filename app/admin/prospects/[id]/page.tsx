@@ -1,8 +1,9 @@
 import { notFound } from "next/navigation";
 import React from "react";
-import { Activity, CalendarCheck, ExternalLink, Eye, Mail, MousePointerClick, Play, Video } from "lucide-react";
+import { Activity, CalendarCheck, CheckCircle2, ExternalLink, Eye, FileText, Mail, MousePointerClick, Play, ShieldCheck, Video } from "lucide-react";
 import { AdminBackButton } from "@/components/admin/admin-back-button";
 import { AdminCard, PageHeader, StatusBadge } from "@/components/admin/ui";
+import { buildCompanyDescription, buildPainHypothesis, buildStructuredLeadInsights, getLeadDataQuality, normalizeLeadContactCandidates, stateFromGermanPostalCode } from "@/lib/lead-data-quality";
 import { prisma } from "@/lib/prisma";
 import { prospectEventLabel } from "@/lib/prospect-events";
 
@@ -39,6 +40,12 @@ export default async function ProspectDetailPage({ params }: ProspectDetailPageP
   }
 
   const landingpageHref = prospect.slug ? `/p/${prospect.slug}` : null;
+  const derivedState = prospect.state ?? stateFromGermanPostalCode(prospect.postalCode);
+  const companyDescription = buildCompanyDescription({ ...prospect, state: derivedState });
+  const painHypothesis = buildPainHypothesis(prospect);
+  const quality = getLeadDataQuality(prospect);
+  const insights = buildStructuredLeadInsights(prospect);
+  const contactCandidates = normalizeLeadContactCandidates(prospect.contactCandidates, prospect.decisionMakerName);
 
   return (
     <div className="lead-detail-page space-y-6">
@@ -74,6 +81,7 @@ export default async function ProspectDetailPage({ params }: ProspectDetailPageP
               <Info label="E-Mail" value={prospect.decisionMakerEmail ?? prospect.companyEmail ?? "k. A."} />
               <Info label="Telefon" value={prospect.phone ?? "k. A."} />
               <Info label="Website" value={prospect.websiteUrl ?? "k. A."} websiteUrl={prospect.websiteUrl} />
+              <Info label="Bundesland" value={derivedState ?? "k. A."} />
               <Info label="Website-Prüfung" value={formatWebsiteVerification(prospect)} />
               <Info label="Website-Kandidat" value={prospect.websiteCandidate ?? "k. A."} websiteUrl={prospect.websiteCandidate} />
               <Info label="E-Mail-Prüfung" value={formatEmailVerification(prospect)} />
@@ -81,6 +89,48 @@ export default async function ProspectDetailPage({ params }: ProspectDetailPageP
               <Info label="Branche" value={prospect.businessFields.join(", ") || "k. A."} />
             </div>
           </AdminCard>
+
+          <AdminCard>
+            <h2 className="text-lg font-semibold text-ink">Datenqualität</h2>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <Quality label="Ansprechpartner" value={quality.contact} icon={<ShieldCheck className="h-4 w-4" aria-hidden="true" />} />
+              <Quality label="Pain-Hypothese" value={quality.pain} icon={<CheckCircle2 className="h-4 w-4" aria-hidden="true" />} />
+              <Quality label="Datenquelle" value={quality.sources} icon={<FileText className="h-4 w-4" aria-hidden="true" />} />
+              <Quality label="Landingpage" value={quality.landingpage} icon={<ExternalLink className="h-4 w-4" aria-hidden="true" />} />
+            </div>
+          </AdminCard>
+
+          <AdminCard>
+            <h2 className="text-lg font-semibold text-ink">Firmenprofil & Hypothese</h2>
+            <div className="mt-4 grid gap-3">
+              <Info label="Was macht die Firma?" value={companyDescription} />
+              <Info label="Schmerzpunkt-Hypothese" value={painHypothesis} />
+            </div>
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              <Insight title="Relevante Signale" items={insights.relevantSignals} />
+              <Insight title="Warum Tasklytic passt" items={insights.tasklyticFit} />
+              <Insight title="Verwendete Quellen" items={insights.sources} />
+              <Insight title="Unsicherheit / Annahmen" items={[insights.uncertainty]} />
+            </div>
+            <details className="mt-4 rounded-2xl border border-slate-200 bg-slate-50">
+              <summary className="cursor-pointer px-4 py-3 text-sm font-semibold text-slate-700">Technische Quellen / Rohdaten</summary>
+              <pre className="max-h-80 overflow-auto border-t border-slate-200 p-4 text-xs text-slate-600">{JSON.stringify(prospect.researchSources ?? {}, null, 2)}</pre>
+            </details>
+          </AdminCard>
+
+          {contactCandidates.length > 0 ? (
+            <AdminCard>
+              <h2 className="text-lg font-semibold text-ink">Kontaktkandidaten prüfen</h2>
+              <div className="mt-4 grid gap-3">
+                {contactCandidates.map((candidate, index) => (
+                  <div key={`${candidate.fullName}-${index}`} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                    <p className="font-semibold text-ink">{candidate.fullName}</p>
+                    <p className="mt-1 text-sm text-slate-600">{[candidate.role, candidate.email, candidate.phone].filter(Boolean).join(" · ") || "Keine weiteren Kontaktdaten"}</p>
+                  </div>
+                ))}
+              </div>
+            </AdminCard>
+          ) : null}
 
           <AdminCard>
             <h2 className="text-lg font-semibold text-ink">Scores</h2>
@@ -208,6 +258,35 @@ function Score({ label, value, helper }: { label: string; value: number; helper?
       <p className="text-sm text-slate-500">{label}</p>
       <p className="mt-2 text-3xl font-semibold text-ink">{value}</p>
       {helper ? <p className="mt-1 text-xs text-slate-500">{helper}</p> : null}
+    </div>
+  );
+}
+
+function Quality({ label, value, icon }: { label: string; value: string; icon: React.ReactNode }) {
+  const tone = value === "sicher" || value === "vorhanden" || value === "bereit" ? "bg-emerald-50 text-emerald-800" : value === "fehlt" || value === "unvollständig" ? "bg-amber-50 text-amber-800" : "bg-blue-50 text-blue-800";
+  return (
+    <div className={`flex items-center gap-3 rounded-2xl p-4 ${tone}`}>
+      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-white/80">{icon}</span>
+      <div>
+        <p className="text-xs uppercase tracking-[0.16em] opacity-70">{label}</p>
+        <p className="mt-1 text-sm font-semibold capitalize">{value}</p>
+      </div>
+    </div>
+  );
+}
+
+function Insight({ title, items }: { title: string; items: string[] }) {
+  return (
+    <div className="rounded-2xl bg-slate-50 p-4">
+      <p className="text-xs uppercase tracking-[0.16em] text-slate-500">{title}</p>
+      <ul className="mt-3 space-y-2 text-sm leading-6 text-slate-700">
+        {items.map((item, index) => (
+          <li key={`${title}-${index}`} className="flex gap-2">
+            <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500" aria-hidden="true" />
+            <span>{item}</span>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

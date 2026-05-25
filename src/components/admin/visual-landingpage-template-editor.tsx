@@ -8,7 +8,10 @@ import { AssetFilePicker } from "@/components/admin/asset-file-picker";
 import { EditorControlLayer, SelectedElementOverlay } from "@/components/admin/editor-control-layer";
 import { VideoAssetPicker } from "@/components/admin/video-asset-picker";
 import { VideoPreview } from "@/components/landing/video-preview";
+import { defaultBookingCalendar, resolveBookingEmbed, type BookingCalendarReference, type ResolvedBookingEmbed } from "@/lib/booking-embed";
+import { bookingCalendarButtonStyle, bookingCalendarIframeStyle, bookingCalendarPlaceholderTokens, bookingCalendarShellStyle } from "@/lib/booking-calendar-style";
 import { headerLogoCompatibilityPatch, resolveHeaderLogo } from "@/lib/landingpage-logo";
+import { isFlowPageSection, landingpageOnlySections, legalTabLabel, legalTabOptions, legalTextForSettings, pageTabForSection, sectionsForPageTab, type LandingpagePageTab } from "@/lib/landingpage-page-flow";
 import { backgroundStyleFromSettings, cssLength, elementStyleToCss, responsiveStyle, textAlignValue as styleTextAlignValue } from "@/lib/landingpage-style";
 import { videoPreviewPropsFromSettings } from "@/lib/landingpage/video-preview-props";
 import {
@@ -52,7 +55,7 @@ import {
   type LandingpageSectionType
 } from "@/lib/landingpage-templates";
 
-type PageTab = "landingpage" | "booking" | "thank_you" | "legal";
+type PageTab = LandingpagePageTab;
 type Device = BuilderDevice;
 type EditingField = keyof LandingpageSectionSettings;
 type InlinePopupMode = "settings" | null;
@@ -113,10 +116,12 @@ const sectionNames: Record<LandingpageSectionType, string> = {
 export function VisualLandingpageTemplateEditor({
   template,
   prospects,
+  bookingCalendars = [],
   backHref = "/admin/landingpages/templates"
 }: {
   template: LandingpageTemplate;
   prospects: Prospect[];
+  bookingCalendars?: BookingCalendarReference[];
   backHref?: string;
 }) {
   const normalizedInitialSections = useMemo(() => ensureEditorSections(getLandingpageSections(template)), [template]);
@@ -183,8 +188,20 @@ export function VisualLandingpageTemplateEditor({
     const resolved = resolveBuilderElement(sections, element);
     setActiveId(resolved.sectionId);
     setActiveElement(selectBuilderElement(resolved));
+    const section = sections.find((item) => item.id === resolved.sectionId);
+    if (section) setActiveTab(pageTabForSection(section));
     if (resolved.field) setEditing({ sectionId: resolved.sectionId, field: resolved.field });
     setDesignOpen(false);
+  }
+
+  function changeActiveTab(nextTab: PageTab) {
+    setActiveTab(nextTab);
+    setInlinePopup(null);
+    const tabSection = firstSectionForTab(sections, nextTab);
+    if (!tabSection) return;
+    setActiveId(tabSection.id);
+    setActiveElement({ sectionId: tabSection.id, kind: "section" });
+    setEditing(null);
   }
 
   function openElementPopup(element: ActiveBuilderElement) {
@@ -344,7 +361,11 @@ function patchActiveElementStyle(patch: BuilderElementStyle) {
 
   function addSection(type: LandingpageSectionType) {
     const next = addLandingpageSection(sections, type);
-    const added = next[next.length - 1] ? ensureBuilderElementsForEditor(next[next.length - 1]) : undefined;
+    const rawAdded = next[next.length - 1];
+    const added = rawAdded ? ensureBuilderElementsForEditor({
+      ...rawAdded,
+      page: activeTab !== "landingpage" && !isFlowPageSection(type) ? activeTab : rawAdded.page
+    }) : undefined;
     const withoutAdded = next.slice(0, -1);
     const activeIndex = withoutAdded.findIndex((section) => section.id === activeId);
     const insertIndex = activeIndex >= 0 ? activeIndex + 1 : withoutAdded.length;
@@ -352,7 +373,7 @@ function patchActiveElementStyle(patch: BuilderElementStyle) {
     replaceSections(ordered);
     setActiveId(added?.id ?? "");
     setActiveElement(added ? defaultActiveElementForSection(added) : null);
-    setActiveTab(type === "booking" ? "booking" : "landingpage");
+    setActiveTab(added ? pageTabForSection(added) : pageTabForSection(type));
     setAddModalOpen(false);
   }
 
@@ -455,7 +476,7 @@ function patchActiveElementStyle(patch: BuilderElementStyle) {
           </div>
           {leftPanelCollapsed ? (
             <div ref={leftSidebarScrollRef} className="mt-4 grid min-h-0 flex-1 content-start gap-2 overflow-y-auto overflow-x-visible px-1 pb-5">
-              {visibleBuilderSections(sections).map((section) => (
+              {visibleBuilderSections(sections, activeTab).map((section) => (
                 <CollapsedSidebarButton key={section.id} label={sectionNames[section.type]} active={section.id === activeId} onClick={() => selectElement({ sectionId: section.id, kind: "section" })} treeKey={`${section.id}-section`}>
                   {sectionIcon(section.type)}
                 </CollapsedSidebarButton>
@@ -467,14 +488,14 @@ function patchActiveElementStyle(patch: BuilderElementStyle) {
           ) : (
             <div ref={leftSidebarScrollRef} className="mt-5 min-h-0 flex-1 overflow-y-auto pr-1 pb-24">
               <div className="space-y-2">
-                {visibleBuilderSections(sections).map((section) => (
+                {visibleBuilderSections(sections, activeTab).map((section) => (
                   <ElementTreeSection
                     key={section.id}
                     section={section}
                     activeElement={activeElement}
                     onSelect={(element) => {
                       selectElement(element);
-                      setActiveTab(section.type === "booking" ? "booking" : "landingpage");
+                      setActiveTab(pageTabForSection(section));
                     }}
                     onDragStart={() => setDraggedSectionId(section.id)}
                     onDrop={() => reorderSection(section.id)}
@@ -494,7 +515,7 @@ function patchActiveElementStyle(patch: BuilderElementStyle) {
             activeTab={activeTab}
             addressForm={addressForm}
             onAddressFormChange={setAddressForm}
-            onTabChange={setActiveTab}
+            onTabChange={changeActiveTab}
           />
           {message ? <div className="mx-5 mt-4 rounded-xl border border-emerald-400/30 bg-emerald-400/10 px-4 py-3 text-sm font-medium text-emerald-100">{message}</div> : null}
           <div className="relative min-h-0 flex-1 overflow-auto px-4 py-6 pb-24 lg:px-6">
@@ -556,6 +577,7 @@ function patchActiveElementStyle(patch: BuilderElementStyle) {
               editing={editing}
               globalDesign={globalDesign}
               prospect={previewProspect}
+              bookingCalendars={bookingCalendars}
               sections={renderedSections}
               activeElement={activeElement}
               onEdit={(sectionId, field, kind = "text") => selectElement({ sectionId, field, kind })}
@@ -582,6 +604,7 @@ function patchActiveElementStyle(patch: BuilderElementStyle) {
               <SectionProperties
                 activeElement={activeElement}
                 section={activeSection}
+                bookingCalendars={bookingCalendars}
                 aiPreview={aiPreview}
                 device={device}
                 onAcceptAi={() => {
@@ -606,6 +629,7 @@ function patchActiveElementStyle(patch: BuilderElementStyle) {
           device={device}
           section={activeSection}
           settings={activeSection.settings}
+          bookingCalendars={bookingCalendars}
           onClose={() => setInlinePopup(null)}
           onSettingsChange={patchActiveElement}
           onStyleChange={patchActiveElementStyle}
@@ -788,6 +812,7 @@ function PreviewCanvas({
   activeId,
   activeElement,
   activeTab,
+  bookingCalendars,
   device,
   editing,
   globalDesign,
@@ -806,6 +831,7 @@ function PreviewCanvas({
   activeId: string;
   activeElement: ActiveBuilderElement | null;
   activeTab: PageTab;
+  bookingCalendars: BookingCalendarReference[];
   device: Device;
   editing: { sectionId: string; field: EditingField } | null;
   globalDesign: GlobalLandingpageDesign;
@@ -832,9 +858,7 @@ function PreviewCanvas({
         <span>{width}px</span>
       </div>
       <div className="mx-auto overflow-hidden rounded-[28px] bg-white shadow-[0_28px_90px_rgba(15,23,42,0.28)] ring-1 ring-slate-200/80 transition-all duration-200" style={{ width, maxWidth: "100%", fontFamily: globalDesign.fontFamily }}>
-        {activeTab === "landingpage" ? (
-          sections
-            .filter((section) => !["booking", "thank_you", "legal", "personal_video"].includes(section.type))
+        {sectionsForTab(sections, activeTab)
             .map((section) => (
               <CanvasSection
                 key={section.id}
@@ -844,6 +868,8 @@ function PreviewCanvas({
                 device={device}
                 editing={editing}
                 globalDesign={globalDesign}
+                bookingCalendars={bookingCalendars}
+                prospect={prospect}
                 onEdit={onEdit}
                 onOpenPopup={onOpenPopup}
                 onDuplicate={onDuplicate}
@@ -853,11 +879,7 @@ function PreviewCanvas({
                 onPatchSettings={onPatchSettings}
                 onSelect={onSelect}
               />
-            ))
-        ) : null}
-        {activeTab === "booking" ? <BookingPreview globalDesign={globalDesign} prospect={prospect} section={findByType(sections, "booking")} /> : null}
-        {activeTab === "thank_you" ? <ThankYouPreview prospect={prospect} section={findByType(sections, "thank_you")} /> : null}
-        {activeTab === "legal" ? <LegalPreview section={findByType(sections, "legal")} /> : null}
+            ))}
       </div>
     </div>
   );
@@ -867,6 +889,8 @@ function CanvasSection({
   section,
   active,
   activeElement,
+  bookingCalendars,
+  prospect,
   device,
   editing,
   globalDesign,
@@ -882,6 +906,8 @@ function CanvasSection({
   section: LandingpageSection;
   active: boolean;
   activeElement: ActiveBuilderElement | null;
+  bookingCalendars: BookingCalendarReference[];
+  prospect?: Prospect;
   device: Device;
   editing: { sectionId: string; field: EditingField } | null;
   globalDesign: GlobalLandingpageDesign;
@@ -923,6 +949,9 @@ function CanvasSection({
       {section.type === "cta" || section.type === "cta_button" ? <CtaSection section={section} activeElement={activeElement} globalDesign={globalDesign} device={device} onEdit={onEdit} onOpenPopup={onOpenPopup} onDuplicate={onDuplicate} onDelete={onDelete} onMove={onMove} onPatchSettings={onPatchSettings} onInlineChange={(field, value) => onPatchElementText({ sectionId: section.id, field, kind: field === "ctaText" ? "button" : "text", elementId: findBuilderElementByField(section, field)?.id }, value)} /> : null}
       {section.type === "image" || section.type === "video" || section.type === "benefits" || section.type === "divider" || section.type === "spacer" ? <ElementSection section={section} activeElement={activeElement} globalDesign={globalDesign} onEdit={onEdit} onOpenPopup={onOpenPopup} onDuplicate={onDuplicate} onDelete={onDelete} onMove={onMove} onPatchSettings={onPatchSettings} onInlineChange={(field, value) => onPatchElementText({ sectionId: section.id, field, kind: "text", elementId: findBuilderElementByField(section, field)?.id }, value)} device={device} /> : null}
       {section.type === "approach" || section.type === "faq" || section.type === "textblock" || section.type === "footer" ? <SimpleSection section={section} activeElement={activeElement} globalDesign={globalDesign} device={device} onEdit={onEdit} onOpenPopup={onOpenPopup} onDuplicate={onDuplicate} onDelete={onDelete} onMove={onMove} onPatchSettings={onPatchSettings} onPatchElementText={onPatchElementText} onInlineChange={(field, value) => onPatchElementText({ sectionId: section.id, field, kind: field === "ctaText" ? "button" : "text", elementId: findBuilderElementByField(section, field)?.id }, value)} /> : null}
+      {section.type === "booking" ? <BookingPageSection section={section} activeElement={activeElement} globalDesign={globalDesign} prospect={prospect} bookingCalendars={bookingCalendars} device={device} onEdit={onEdit} onOpenPopup={onOpenPopup} onDuplicate={onDuplicate} onDelete={onDelete} onMove={onMove} onPatchSettings={onPatchSettings} onInlineChange={(field, value) => onPatchElementText({ sectionId: section.id, field, kind: field === "ctaText" ? "button" : "text", elementId: findBuilderElementByField(section, field)?.id }, value)} /> : null}
+      {section.type === "thank_you" ? <ThankYouPageSection section={section} activeElement={activeElement} globalDesign={globalDesign} device={device} onEdit={onEdit} onOpenPopup={onOpenPopup} onDuplicate={onDuplicate} onDelete={onDelete} onMove={onMove} onInlineChange={(field, value) => onPatchElementText({ sectionId: section.id, field, kind: field === "ctaText" ? "button" : "text", elementId: findBuilderElementByField(section, field)?.id }, value)} /> : null}
+      {section.type === "legal" ? <LegalPageSection section={section} activeElement={activeElement} globalDesign={globalDesign} device={device} onEdit={onEdit} onOpenPopup={onOpenPopup} onDuplicate={onDuplicate} onDelete={onDelete} onMove={onMove} onInlineChange={(field, value) => onPatchElementText({ sectionId: section.id, field, kind: "text", elementId: findBuilderElementByField(section, field)?.id }, value)} /> : null}
     </SelectedElementOverlay>
   );
 }
@@ -1596,60 +1625,143 @@ function CompareCard({
   );
 }
 
-function BookingPreview({ section, prospect, globalDesign }: { section?: LandingpageSection; prospect?: Prospect; globalDesign: GlobalLandingpageDesign }) {
-  const settings = section?.settings ?? {};
-  const bookingUrl = settings.bookingUrl || prospect?.bookingUrl || prospect?.calendarUrl || "";
+function BookingPageSection({ section, activeElement, prospect, bookingCalendars, globalDesign, device, onEdit, onOpenPopup, onDuplicate, onDelete, onMove, onPatchSettings, onInlineChange }: CanvasChildProps & { prospect?: Prospect; bookingCalendars: BookingCalendarReference[]; device: Device }) {
+  const settings = section.settings;
+  const booking = resolveBookingEmbed(settings, prospect, defaultBookingCalendar(bookingCalendars));
+  const buttonSelected = isActiveButton(activeElement, section.id, "ctaText");
   return (
     <div className="min-h-[760px] bg-slate-50">
-      <header className="flex items-center justify-between border-b border-slate-200 bg-white px-8 py-5">
-        <span className="text-sm font-semibold text-slate-600">← Zurück</span>
-        <span className="font-bold">Tasklytic</span>
-      </header>
+      {settings.bookingShowBackButton === false ? null : (
+        <header className="flex items-center justify-between border-b border-slate-200 bg-white px-8 py-5">
+          <span className="text-sm font-semibold text-slate-600">← Zurück</span>
+          <span className="font-bold">Tasklytic</span>
+        </header>
+      )}
       <section className="px-8 py-12 text-center">
-        <h1 className="text-5xl font-semibold text-slate-950">{settings.headline || "Termin vereinbaren"}</h1>
-        <p className="mx-auto mt-4 max-w-2xl text-lg text-slate-600">{settings.subheadline || "Wähle einen passenden Zeitpunkt für unser Gespräch aus."}</p>
-        <div className="mx-auto mt-8 max-w-4xl overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-[0_18px_55px_rgba(15,23,42,0.12)]">
-          {bookingUrl ? <iframe src={bookingUrl} title="Buchungskalender" className="h-[620px] w-full" /> : <CalendarPlaceholder globalDesign={globalDesign} />}
-        </div>
+        <EditableText section={section} activeElement={activeElement} field="headline" device={device} className="break-words" onEdit={onEdit} onOpenPopup={onOpenPopup} onDuplicate={onDuplicate} onDelete={onDelete} onMove={onMove} onInlineChange={onInlineChange}>{settings.headline || "Termin vereinbaren"}</EditableText>
+        <EditableText section={section} activeElement={activeElement} field="subheadline" device={device} className="mx-auto mt-4 max-w-2xl break-words" onEdit={onEdit} onOpenPopup={onOpenPopup} onDuplicate={onDuplicate} onDelete={onDelete} onMove={onMove} onInlineChange={onInlineChange}>{settings.subheadline || "Wähle einen passenden Zeitpunkt für unser Gespräch aus."}</EditableText>
+        <BookingCalendarBlock
+          section={section}
+          activeElement={activeElement}
+          booking={booking}
+          bookingCalendars={bookingCalendars}
+          globalDesign={globalDesign}
+          onOpenPopup={onOpenPopup}
+          onPatchSettings={onPatchSettings}
+        />
+        {settings.ctaText ? (
+          <ButtonAlign settings={settings} className="mt-7">
+            <ButtonBlock section={section} field="ctaText" selected={buttonSelected} text={settings.ctaText} globalDesign={globalDesign} activeElement={activeElement} device={device} onEdit={onEdit} onOpenPopup={onOpenPopup} onDuplicate={onDuplicate} onDelete={onDelete} onMove={onMove} onInlineChange={onInlineChange} />
+          </ButtonAlign>
+        ) : null}
       </section>
       <FooterPreview bodyText="Impressum  Datenschutz  Cookies" />
     </div>
   );
 }
 
-function CalendarPlaceholder({ globalDesign }: { globalDesign: GlobalLandingpageDesign }) {
+function BookingCalendarBlock({
+  section,
+  activeElement,
+  booking,
+  bookingCalendars,
+  globalDesign,
+  onOpenPopup,
+  onPatchSettings
+}: {
+  section: LandingpageSection;
+  activeElement?: ActiveBuilderElement | null;
+  booking: ResolvedBookingEmbed;
+  bookingCalendars: BookingCalendarReference[];
+  globalDesign: GlobalLandingpageDesign;
+  onOpenPopup: (element: ActiveBuilderElement) => void;
+  onPatchSettings?: (sectionId: string, patch: Partial<LandingpageSectionSettings>) => void;
+}) {
+  const settings = section.settings;
+  const editElement: ActiveBuilderElement = { sectionId: section.id, kind: "booking", field: "bookingUrl" };
+  const designElement: ActiveBuilderElement = { sectionId: section.id, kind: "booking", field: "bookingCalendarBorderColor" };
+  const selected = isSameElement(activeElement, editElement) || isSameElement(activeElement, designElement);
   return (
-    <div className="grid min-h-[520px] place-items-center p-8">
-      <div className="w-full max-w-2xl rounded-3xl border border-slate-200 bg-slate-50 p-6 text-left">
-        <div className="h-6 w-44 rounded-full bg-slate-200" />
-        <div className="mt-6 grid grid-cols-7 gap-2">{Array.from({ length: 35 }).map((_, index) => <div key={index} className="aspect-square rounded-xl bg-white shadow-sm" />)}</div>
-        <button type="button" className="mt-6 rounded-full px-5 py-3 text-sm font-bold text-white" style={{ backgroundColor: globalDesign.buttonColor }}>Zeit auswählen</button>
+    <div
+      data-builder-control-anchor={activeElementTreeKey(editElement)}
+      className={`group relative mx-auto overflow-hidden border shadow-[0_18px_55px_rgba(15,23,42,0.12)] ${selected ? "ring-2 ring-[#6556ff]" : "ring-1 ring-transparent"}`}
+      style={bookingCalendarShellStyle(settings)}
+      onClick={(event) => {
+        event.stopPropagation();
+        onOpenPopup(editElement);
+      }}
+    >
+      <div className={`absolute left-4 top-4 z-10 flex gap-2 transition ${selected ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}>
+        <button type="button" onClick={(event) => { event.stopPropagation(); onOpenPopup(editElement); }} className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 shadow-sm hover:bg-slate-50">Bearbeiten</button>
+        <button type="button" onClick={(event) => { event.stopPropagation(); onOpenPopup(designElement); }} className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 shadow-sm hover:bg-slate-50">Design</button>
+      </div>
+      <BookingCalendarFrame booking={booking} settings={settings} globalDesign={globalDesign} onSetup={() => onPatchSettings?.(section.id, calendarPatchFromReference(defaultBookingCalendar(bookingCalendars)))} />
+    </div>
+  );
+}
+
+function BookingCalendarFrame({ booking, settings, globalDesign, onSetup }: { booking: ResolvedBookingEmbed; settings: LandingpageSectionSettings; globalDesign: GlobalLandingpageDesign; onSetup?: () => void }) {
+  if (booking.active && booking.embedUrl) {
+    return <iframe src={booking.embedUrl} title={booking.displayName} loading="lazy" className="w-full bg-white" style={bookingCalendarIframeStyle(settings)} allow="clipboard-write; fullscreen; payment" />;
+  }
+  if (booking.active && booking.externalUrl) {
+    return (
+      <div className="grid min-h-[360px] place-items-center p-8">
+        <div className="max-w-xl rounded-3xl border border-slate-200 bg-slate-50 p-6 text-center">
+          <p className="text-sm font-bold text-slate-950">{booking.displayName}</p>
+          <p className="mt-2 break-all text-xs text-slate-500">{booking.externalUrl}</p>
+          <a href={booking.externalUrl} target="_blank" rel="noreferrer" onClick={(event) => event.stopPropagation()} className="mt-5 inline-flex rounded-xl px-4 py-2 text-sm font-bold" style={bookingCalendarButtonStyle(settings)}>Kalender extern öffnen</a>
+        </div>
+      </div>
+    );
+  }
+  return <CalendarPlaceholder settings={settings} globalDesign={globalDesign} onSetup={onSetup} />;
+}
+
+function CalendarPlaceholder({ settings, globalDesign, onSetup }: { settings: LandingpageSectionSettings; globalDesign: GlobalLandingpageDesign; onSetup?: () => void }) {
+  const tokens = bookingCalendarPlaceholderTokens(settings);
+  return (
+    <div className="grid min-h-[420px] place-items-center p-8" style={{ color: settings.bookingCalendarTextColor || undefined }}>
+      <div className="w-full max-w-2xl rounded-3xl border bg-slate-50 p-6 text-left" style={{ borderColor: tokens.borderColor }}>
+        <p className="mb-2 text-sm font-semibold text-slate-800">Kein Buchungskalender hinterlegt.</p>
+        <p className="text-xs leading-5 text-slate-500">Wähle einen globalen Kalender, TidyCal/Cal.com oder füge eine Embed-URL ein.</p>
+        <div className="mt-5 h-6 w-44 rounded-full bg-slate-200" style={{ borderRadius: tokens.inputRadius }} />
+        <div className="mt-6 grid grid-cols-7 gap-2">{Array.from({ length: 35 }).map((_, index) => <div key={index} className="aspect-square rounded-xl bg-white shadow-sm" style={index === 17 ? { backgroundColor: tokens.activeDayColor, color: tokens.activeTextColor, borderRadius: tokens.inputRadius, borderWidth: tokens.inputBorderWidth } : { borderRadius: tokens.inputRadius, borderWidth: tokens.inputBorderWidth }} />)}</div>
+        <button type="button" onClick={(event) => { event.stopPropagation(); onSetup?.(); }} className="mt-6 rounded-full px-5 py-3 text-sm font-bold text-white" style={settings.bookingCalendarButtonColor ? bookingCalendarButtonStyle(settings) : { backgroundColor: globalDesign.buttonColor }}>
+          Kalender einrichten
+        </button>
       </div>
     </div>
   );
 }
 
-function ThankYouPreview({ section, prospect }: { section?: LandingpageSection; prospect?: Prospect }) {
-  const settings = section?.settings ?? {};
+function ThankYouPageSection({ section, activeElement, globalDesign, device, onEdit, onOpenPopup, onDuplicate, onDelete, onMove, onInlineChange }: CanvasChildProps & { device: Device }) {
+  const settings = section.settings;
+  const buttonSelected = isActiveButton(activeElement, section.id, "ctaText");
   return (
     <div className="grid min-h-[760px] place-items-center bg-white px-8 text-center">
       <div className="max-w-2xl">
         <div className="mx-auto grid h-20 w-20 place-items-center rounded-full bg-emerald-100 text-4xl text-emerald-700">✓</div>
-        <h1 className="mt-8 text-5xl font-semibold text-slate-950">{settings.headline || `Termin erfolgreich gebucht, ${prospect?.firstName ?? ""}!`}</h1>
-        <p className="mt-5 text-lg leading-8 text-slate-600">{settings.bodyText || "Vielen Dank für die Buchung. Die Bestätigungsmail mit allen Termindetails wird in Kürze versendet."}</p>
-        <a href="#" className="mt-8 inline-flex rounded-full bg-slate-950 px-5 py-3 text-sm font-bold text-white">Zurück zur Startseite</a>
+        <EditableText section={section} activeElement={activeElement} field="headline" device={device} className="mt-8 break-words" onEdit={onEdit} onOpenPopup={onOpenPopup} onDuplicate={onDuplicate} onDelete={onDelete} onMove={onMove} onInlineChange={onInlineChange}>{settings.headline || "Termin erfolgreich gebucht!"}</EditableText>
+        <EditableText section={section} activeElement={activeElement} field="bodyText" device={device} className="mt-5 break-words text-slate-600" onEdit={onEdit} onOpenPopup={onOpenPopup} onDuplicate={onDuplicate} onDelete={onDelete} onMove={onMove} onInlineChange={onInlineChange}>{settings.bodyText || "Vielen Dank für die Buchung. Die Bestätigungsmail mit allen Termindetails wird in Kürze versendet."}</EditableText>
+        {settings.ctaText ? (
+          <ButtonAlign settings={settings} className="mt-8">
+            <ButtonBlock section={section} field="ctaText" selected={buttonSelected} text={settings.ctaText} globalDesign={globalDesign} activeElement={activeElement} device={device} onEdit={onEdit} onOpenPopup={onOpenPopup} onDuplicate={onDuplicate} onDelete={onDelete} onMove={onMove} onInlineChange={onInlineChange} />
+          </ButtonAlign>
+        ) : null}
       </div>
     </div>
   );
 }
 
-function LegalPreview({ section }: { section?: LandingpageSection }) {
-  const settings = section?.settings ?? {};
-  const tabs = ["Impressum", "Datenschutz", "Cookies"];
+function LegalPageSection({ section, activeElement, device, onEdit, onOpenPopup, onDuplicate, onDelete, onMove, onInlineChange }: CanvasChildProps & { device: Device }) {
+  const settings = section.settings;
+  const tabs = legalTabOptions;
   return (
     <div className="min-h-[760px] bg-slate-50 px-8 py-10">
       <div className="mx-auto max-w-4xl">
-        <div className="flex gap-2">{tabs.map((tab) => <span key={tab} className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm">{tab}</span>)}</div>
+        <EditableText section={section} activeElement={activeElement} field="headline" device={device} className="mb-5 break-words" onEdit={onEdit} onOpenPopup={onOpenPopup} onDuplicate={onDuplicate} onDelete={onDelete} onMove={onMove} onInlineChange={onInlineChange}>{settings.headline || "Rechtliches"}</EditableText>
+        <div className="flex flex-wrap gap-2">{tabs.map((tab) => <span key={tab.value} className={`rounded-full px-4 py-2 text-sm font-semibold shadow-sm ${settings.legalTab === tab.value ? "bg-slate-950 text-white" : "bg-white text-slate-700"}`}>{tab.label}</span>)}</div>
         <div className="mt-8 rounded-[28px] bg-white p-8 shadow-[0_18px_55px_rgba(15,23,42,0.1)]">
           {settings.legalMode === "external_link" ? (
             <div>
@@ -1659,8 +1771,8 @@ function LegalPreview({ section }: { section?: LandingpageSection }) {
             </div>
           ) : (
             <article className="prose max-w-none text-slate-700">
-              <h1 className="text-3xl font-semibold text-slate-950">{settings.legalTab || "Rechtliches"}</h1>
-              <p className="mt-4 whitespace-pre-line leading-8">{settings.legalText || "Rechtstext im Preview anzeigen."}</p>
+              <h1 className="text-3xl font-semibold text-slate-950">{legalTabLabel(settings.legalTab)}</h1>
+              <p className="mt-4 whitespace-pre-line leading-8">{legalTextForSettings(settings) || "Rechtstext im Preview anzeigen."}</p>
             </article>
           )}
         </div>
@@ -1685,6 +1797,7 @@ function FooterPreview({ bodyText, onEdit }: { bodyText: string; onEdit?: () => 
 function SectionProperties({
   activeElement,
   section,
+  bookingCalendars,
   aiPreview,
   device,
   onAcceptAi,
@@ -1697,6 +1810,7 @@ function SectionProperties({
 }: {
   activeElement: ActiveBuilderElement | null;
   section: LandingpageSection;
+  bookingCalendars: BookingCalendarReference[];
   aiPreview: Record<string, string> | null;
   device: Device;
   onAcceptAi: () => void;
@@ -1730,6 +1844,7 @@ function SectionProperties({
           element={activeElement}
           section={section}
           settings={settings}
+          bookingCalendars={bookingCalendars}
           device={device}
           onSettingsChange={onElementSettingsChange}
           onStyleChange={onElementStyleChange}
@@ -1746,7 +1861,7 @@ function SectionProperties({
       {section.type === "explainer_video" ? <ExplainerFields settings={settings} onChange={onSettingsChange} /> : null}
       {section.type === "comparison" ? <ComparisonFields settings={settings} onChange={onSettingsChange} /> : null}
       {["image", "video", "cta_button", "benefits", "divider", "spacer"].includes(section.type) ? <ElementFields settings={settings} onChange={onSettingsChange} type={section.type} /> : null}
-      {section.type === "booking" || section.type === "thank_you" || section.type === "legal" ? <SpecialPageFields settings={settings} onChange={onSettingsChange} type={section.type} /> : null}
+      {section.type === "booking" || section.type === "thank_you" || section.type === "legal" ? <SpecialPageFields settings={settings} onChange={onSettingsChange} type={section.type} bookingCalendars={bookingCalendars} /> : null}
       {!["header", "hero", "explainer_video", "comparison", "booking", "thank_you", "legal", "image", "video", "cta_button", "benefits", "divider", "spacer"].includes(section.type) ? <TextFields settings={settings} onChange={onSettingsChange} /> : null}
         </>
       )}
@@ -1910,6 +2025,7 @@ function ResponsiveModuleControls({ section, device, onSectionChange }: { sectio
 
 function editorTitle(activeElement: ActiveBuilderElement | null, section: LandingpageSection) {
   if (activeElement?.kind === "button") return "Button bearbeiten";
+  if (activeElement?.kind === "booking") return "Kalender bearbeiten";
   if (activeElement?.kind === "video") return "Video bearbeiten";
   if (activeElement?.kind === "logo") return "Logo bearbeiten";
   if (activeElement?.kind === "list_item") return "Element bearbeiten";
@@ -1925,6 +2041,7 @@ function ActiveElementEditor({
   element,
   section,
   settings,
+  bookingCalendars,
   device,
   onSettingsChange,
   onStyleChange,
@@ -1933,6 +2050,7 @@ function ActiveElementEditor({
   element: ActiveBuilderElement;
   section: LandingpageSection;
   settings: LandingpageSectionSettings;
+  bookingCalendars: BookingCalendarReference[];
   device: Device;
   onSettingsChange: (patch: Partial<LandingpageSectionSettings>) => void;
   onStyleChange: (patch: BuilderElementStyle) => void;
@@ -1945,6 +2063,9 @@ function ActiveElementEditor({
   const elementStyle = builderElement?.style ?? {};
   const textFallbacks = textStyleFallbacks(element);
   const elementBackgroundControls = <BackgroundControls title="Hintergrund" value={elementStyle as BackgroundEditable} onChange={(patch) => onStyleChange(patch as BuilderElementStyle)} />;
+  if (element.kind === "booking") {
+    return <CalendarBlockEditor settings={settings} bookingCalendars={bookingCalendars} initialTab={element.field === "bookingCalendarBorderColor" ? "design" : "edit"} onSettingsChange={onSettingsChange} />;
+  }
   if (element.kind === "logo") {
     return <LogoElementEditor settings={settings} onSettingsChange={onSettingsChange} />;
   }
@@ -2227,14 +2348,30 @@ function ComparisonFields({ settings, onChange }: FieldGroupProps) {
   );
 }
 
-function SpecialPageFields({ settings, onChange, type }: FieldGroupProps & { type: LandingpageSectionType }) {
+function SpecialPageFields({ settings, onChange, type, bookingCalendars = [] }: FieldGroupProps & { type: LandingpageSectionType; bookingCalendars?: BookingCalendarReference[] }) {
   if (type === "legal") {
     return (
       <div className="space-y-3">
-        <Select label="Untertab" value={settings.legalTab ?? "impressum"} options={["impressum", "datenschutz", "cookies"]} onChange={(value) => onChange({ legalTab: value as LandingpageSectionSettings["legalTab"] })} />
+        <Select label="Untertab" value={settings.legalTab ?? "impressum"} options={legalTabOptions.map((tab) => tab.value)} onChange={(value) => onChange({ legalTab: value as LandingpageSectionSettings["legalTab"] })} />
         <Select label="Modus" value={settings.legalMode ?? "text"} options={["text", "external_link"]} onChange={(value) => onChange({ legalMode: value as LandingpageSectionSettings["legalMode"] })} />
         <Field label="URL" value={settings.legalUrl ?? ""} onChange={(value) => onChange({ legalUrl: value })} />
-        <Textarea label="Rechtstext" value={settings.legalText ?? ""} onChange={(value) => onChange({ legalText: value })} />
+        <Textarea label="Impressum" value={settings.legalImprintText ?? ""} onChange={(value) => onChange({ legalImprintText: value })} />
+        <Textarea label="Datenschutz" value={settings.legalPrivacyText ?? ""} onChange={(value) => onChange({ legalPrivacyText: value })} />
+        <Textarea label="Datenverarbeitung" value={settings.legalProcessingText ?? ""} onChange={(value) => onChange({ legalProcessingText: value })} />
+        <Textarea label="AGB" value={settings.legalTermsText ?? ""} onChange={(value) => onChange({ legalTermsText: value })} />
+        <Textarea label="Disclaimer" value={settings.legalDisclaimerText ?? ""} onChange={(value) => onChange({ legalDisclaimerText: value })} />
+        <Textarea label="Cookies / zusätzlicher Rechtstext" value={settings.legalText ?? ""} onChange={(value) => onChange({ legalText: value })} />
+      </div>
+    );
+  }
+  if (type === "booking") {
+    return (
+      <div className="space-y-4">
+        <Textarea label="Headline" value={settings.headline ?? ""} onChange={(value) => onChange({ headline: value })} />
+        <Textarea label="Subheadline" value={settings.subheadline ?? ""} onChange={(value) => onChange({ subheadline: value })} />
+        <CalendarBlockEditor settings={settings} bookingCalendars={bookingCalendars} onSettingsChange={onChange} />
+        <Field label="CTA Text" value={settings.ctaText ?? ""} onChange={(value) => onChange({ ctaText: value })} />
+        <Field label="CTA URL nach Kalender" value={settings.ctaUrl ?? ""} onChange={(value) => onChange({ ctaUrl: value })} />
       </div>
     );
   }
@@ -2242,9 +2379,169 @@ function SpecialPageFields({ settings, onChange, type }: FieldGroupProps & { typ
     <div className="space-y-3">
       <Textarea label="Headline" value={settings.headline ?? ""} onChange={(value) => onChange({ headline: value })} />
       <Textarea label="Text" value={settings.bodyText ?? ""} onChange={(value) => onChange({ bodyText: value })} />
-      {type === "booking" ? <Field label="bookingUrl" value={settings.bookingUrl ?? ""} onChange={(value) => onChange({ bookingUrl: value })} /> : null}
+      <Field label="CTA Text" value={settings.ctaText ?? ""} onChange={(value) => onChange({ ctaText: value })} />
+      <Field label="CTA URL" value={settings.ctaUrl ?? ""} onChange={(value) => onChange({ ctaUrl: value })} />
     </div>
   );
+}
+
+function CalendarBlockEditor({
+  settings,
+  bookingCalendars,
+  initialTab = "edit",
+  onSettingsChange
+}: {
+  settings: LandingpageSectionSettings;
+  bookingCalendars: BookingCalendarReference[];
+  initialTab?: "edit" | "design";
+  onSettingsChange: (patch: Partial<LandingpageSectionSettings>) => void;
+}) {
+  const [tab, setTab] = useState<"edit" | "design">(initialTab);
+  const booking = resolveBookingEmbed(settings, previewLead, defaultBookingCalendar(bookingCalendars));
+  return (
+    <div className="rounded-2xl border border-[#d8d4ff] bg-[#f7f6ff] p-4">
+      <div className="grid grid-cols-2 gap-1 rounded-xl bg-white/70 p-1 text-xs font-semibold">
+        <button type="button" onClick={() => setTab("edit")} className={`rounded-lg px-2 py-2 ${tab === "edit" ? "bg-slate-950 text-white shadow-sm" : "text-slate-500"}`}>Bearbeiten</button>
+        <button type="button" onClick={() => setTab("design")} className={`rounded-lg px-2 py-2 ${tab === "design" ? "bg-slate-950 text-white shadow-sm" : "text-slate-500"}`}>Design</button>
+      </div>
+      <div className="mt-4 space-y-4">
+        {tab === "edit" ? <CalendarSourceControls settings={settings} booking={booking} bookingCalendars={bookingCalendars} onSettingsChange={onSettingsChange} /> : null}
+        {tab === "design" ? <CalendarDesignControls settings={settings} onSettingsChange={onSettingsChange} /> : null}
+      </div>
+    </div>
+  );
+}
+
+function CalendarSourceControls({ settings, booking, bookingCalendars, onSettingsChange }: { settings: LandingpageSectionSettings; booking: ResolvedBookingEmbed; bookingCalendars: BookingCalendarReference[]; onSettingsChange: (patch: Partial<LandingpageSectionSettings>) => void }) {
+  const source = settings.bookingSource ?? "global_default";
+  return (
+    <div className="space-y-4">
+      <Select label="CTA-Ziel auf Landingpage" value={settings.bookingMode ?? "embedded_page"} options={["embedded_page", "embedded_scroll", "external_link"]} onChange={(value) => onSettingsChange({ bookingMode: value as LandingpageSectionSettings["bookingMode"] })} />
+      <Select label="Kalender-Quelle" value={source} options={["global_default", "tidycal", "cal_com", "custom_embed", "external_url"]} onChange={(value) => onSettingsChange(calendarSourcePatch(value as NonNullable<LandingpageSectionSettings["bookingSource"]>))} />
+      <BookingCalendarPicker settings={settings} calendars={bookingCalendars} onChange={onSettingsChange} />
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Select label="Anbieter" value={settings.bookingProvider ?? "custom"} options={["tidycal", "cal_com", "calendly", "microsoft_bookings", "custom"]} onChange={(value) => onSettingsChange({ bookingProvider: value as LandingpageSectionSettings["bookingProvider"] })} />
+        <Field label="Zeitzone" value={settings.bookingTimezone ?? "Europe/Berlin"} onChange={(value) => onSettingsChange({ bookingTimezone: value })} />
+      </div>
+      <Field label="Kalendername" value={settings.bookingCalendarName ?? ""} onChange={(value) => onSettingsChange({ bookingCalendarName: value })} />
+      <Field label="Kalender-URL / externer Link" value={settings.bookingUrl ?? ""} onChange={(value) => onSettingsChange({ bookingUrl: value })} />
+      <Field label="Embed-URL" value={settings.bookingEmbedUrl ?? ""} onChange={(value) => onSettingsChange({ bookingEmbedUrl: value })} />
+      <Textarea label="Custom iframe Embed-Code" value={settings.bookingEmbedCode ?? ""} onChange={(value) => onSettingsChange({ bookingEmbedCode: value, bookingSource: "custom_embed" })} />
+      <Field label="Button-Text" value={settings.bookingButtonText ?? ""} onChange={(value) => onSettingsChange({ bookingButtonText: value })} />
+      <Field label="Danke-URL / Thank-you Route" value={settings.bookingThankYouUrl ?? ""} onChange={(value) => onSettingsChange({ bookingThankYouUrl: value })} />
+      <div className="grid gap-2">
+        <label className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 text-sm font-medium text-slate-700">
+          <input className="h-4 w-4" type="checkbox" checked={settings.bookingCalendarActive !== false} onChange={(event) => onSettingsChange({ bookingCalendarActive: event.target.checked })} />
+          Kalender aktiv
+        </label>
+        <label className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 text-sm font-medium text-slate-700">
+          <input className="h-4 w-4" type="checkbox" checked={settings.bookingShowBackButton !== false} onChange={(event) => onSettingsChange({ bookingShowBackButton: event.target.checked })} />
+          Zurück-Button anzeigen
+        </label>
+      </div>
+      <CalendarMiniPreview booking={booking} />
+    </div>
+  );
+}
+
+function CalendarDesignControls({ settings, onSettingsChange }: { settings: LandingpageSectionSettings; onSettingsChange: (patch: Partial<LandingpageSectionSettings>) => void }) {
+  const tokens = bookingCalendarPlaceholderTokens(settings);
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-3 sm:grid-cols-2">
+        <ColorField label="Rahmenfarbe" value={settings.bookingCalendarBorderColor ?? "#E5E7EB"} onChange={(value) => onSettingsChange({ bookingCalendarBorderColor: value })} />
+        <ColorField label="Hintergrundfarbe" value={settings.bookingCalendarBackgroundColor ?? "#FFFFFF"} onChange={(value) => onSettingsChange({ bookingCalendarBackgroundColor: value })} />
+        <ColorField label="Textfarbe" value={settings.bookingCalendarTextColor ?? "#111827"} onChange={(value) => onSettingsChange({ bookingCalendarTextColor: value })} />
+        <ColorField label="Aktiver Tag" value={settings.bookingCalendarActiveDayColor ?? "#2563EB"} onChange={(value) => onSettingsChange({ bookingCalendarActiveDayColor: value })} />
+        <ColorField label="Aktiver Text" value={settings.bookingCalendarActiveTextColor ?? "#FFFFFF"} onChange={(value) => onSettingsChange({ bookingCalendarActiveTextColor: value })} />
+        <ColorField label="Buttonfarbe" value={settings.bookingCalendarButtonColor ?? "#0F172A"} onChange={(value) => onSettingsChange({ bookingCalendarButtonColor: value })} />
+        <ColorField label="Button-Textfarbe" value={settings.bookingCalendarButtonTextColor ?? "#FFFFFF"} onChange={(value) => onSettingsChange({ bookingCalendarButtonTextColor: value })} />
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Field label="Border Radius" type="number" value={settings.bookingCalendarBorderRadius ?? "24"} onChange={(value) => onSettingsChange({ bookingCalendarBorderRadius: value })} />
+        <Field label="Feld-Radius" type="number" value={settings.bookingCalendarInputRadius ?? "12"} onChange={(value) => onSettingsChange({ bookingCalendarInputRadius: value })} />
+        <Field label="Feld-Border Breite" type="number" value={settings.bookingCalendarInputBorderWidth ?? "1"} onChange={(value) => onSettingsChange({ bookingCalendarInputBorderWidth: value })} />
+        <Field label="Kalenderbreite" type="number" value={settings.bookingCalendarWidth ?? "960"} onChange={(value) => onSettingsChange({ bookingCalendarWidth: value })} />
+        <Field label="Kalenderhöhe" type="number" value={settings.bookingCalendarHeight ?? "640"} onChange={(value) => onSettingsChange({ bookingCalendarHeight: value })} />
+        <Field label="Abstand oben" type="number" value={settings.bookingCalendarSpacingTop ?? "32"} onChange={(value) => onSettingsChange({ bookingCalendarSpacingTop: value })} />
+        <Field label="Abstand unten" type="number" value={settings.bookingCalendarSpacingBottom ?? "24"} onChange={(value) => onSettingsChange({ bookingCalendarSpacingBottom: value })} />
+      </div>
+      <div className="rounded-2xl border bg-white p-4" style={bookingCalendarShellStyle(settings)}>
+        <div className="grid grid-cols-7 gap-2">{Array.from({ length: 14 }).map((_, index) => <div key={index} className="aspect-square rounded-xl border bg-slate-50" style={index === 8 ? { backgroundColor: tokens.activeDayColor, color: tokens.activeTextColor, borderRadius: tokens.inputRadius } : { borderRadius: tokens.inputRadius, borderColor: tokens.borderColor }} />)}</div>
+        <button type="button" className="mt-4 rounded-xl px-4 py-2 text-xs font-bold" style={bookingCalendarButtonStyle(settings)}>Termin auswählen</button>
+      </div>
+    </div>
+  );
+}
+
+function CalendarMiniPreview({ booking }: { booking: ResolvedBookingEmbed }) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-4">
+      <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Test / Vorschau</p>
+      <p className="mt-2 text-sm font-semibold text-slate-950">{booking.displayName}</p>
+      <p className="mt-1 break-all text-xs text-slate-500">{booking.embedUrl || booking.externalUrl || "Kein Buchungskalender hinterlegt."}</p>
+      {booking.externalUrl ? <a href={booking.externalUrl} target="_blank" rel="noreferrer" className="mt-3 inline-flex rounded-xl bg-slate-950 px-3 py-2 text-xs font-bold text-white">Test-Link öffnen</a> : null}
+    </div>
+  );
+}
+
+function BookingCalendarPicker({ settings, calendars, onChange }: { settings: LandingpageSectionSettings; calendars: BookingCalendarReference[]; onChange: (patch: Partial<LandingpageSectionSettings>) => void }) {
+  if (calendars.length === 0) {
+    return (
+      <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-600">
+        Noch kein zentraler Buchungskalender hinterlegt. Du kannst unten eine Kalender-URL oder einen Embed-Code eintragen.
+      </div>
+    );
+  }
+  return (
+    <label className="block min-w-0 space-y-2">
+      <span className="block text-xs font-semibold uppercase tracking-wide text-slate-500">Zentralen Kalender übernehmen</span>
+      <select
+        className="h-11 w-full min-w-0 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none focus:border-[#6556ff]"
+        value={settings.bookingCalendarId ?? ""}
+        onChange={(event) => {
+          const calendar = calendars.find((item) => item.id === event.target.value);
+          if (!calendar) return;
+          onChange(calendarPatchFromReference(calendar));
+        }}
+      >
+        <option value="">Kalender auswählen...</option>
+        {calendars.map((calendar) => (
+          <option key={calendar.id ?? calendar.bookingUrl ?? calendar.displayName ?? "calendar"} value={calendar.id ?? ""}>
+            {calendar.displayName ?? calendar.bookingUrl ?? "Buchungskalender"}{calendar.isDefault ? " (Standard)" : ""}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function calendarSourcePatch(source: NonNullable<LandingpageSectionSettings["bookingSource"]>): Partial<LandingpageSectionSettings> {
+  if (source === "tidycal") return { bookingSource: source, bookingProvider: "tidycal", bookingMode: "embedded_page" };
+  if (source === "cal_com") return { bookingSource: source, bookingProvider: "cal_com", bookingMode: "embedded_page" };
+  if (source === "external_url") return { bookingSource: source, bookingProvider: "custom", bookingMode: "external_link" };
+  if (source === "custom_embed") return { bookingSource: source, bookingProvider: "custom", bookingMode: "embedded_page" };
+  return { bookingSource: "global_default", bookingMode: "embedded_page" };
+}
+
+function calendarPatchFromReference(calendar: BookingCalendarReference | null): Partial<LandingpageSectionSettings> {
+  if (!calendar) return { bookingSource: "global_default", bookingCalendarActive: true };
+  const provider = (calendar.provider ?? "custom") as LandingpageSectionSettings["bookingProvider"];
+  return {
+    bookingSource: bookingSourceFromProvider(provider),
+    bookingCalendarId: calendar.id ?? "",
+    bookingProvider: provider,
+    bookingCalendarName: calendar.displayName ?? "",
+    bookingUrl: calendar.bookingUrl ?? "",
+    bookingEmbedUrl: calendar.bookingUrl ?? "",
+    bookingCalendarActive: calendar.isActive !== false
+  };
+}
+
+function bookingSourceFromProvider(provider: LandingpageSectionSettings["bookingProvider"]): LandingpageSectionSettings["bookingSource"] {
+  if (provider === "tidycal") return "tidycal";
+  if (provider === "cal_com") return "cal_com";
+  return "custom_embed";
 }
 
 function VideoDesignControls({ settings, onChange }: FieldGroupProps) {
@@ -2487,6 +2784,7 @@ function InlineElementPopup({
   activeElement,
   section,
   settings,
+  bookingCalendars,
   device,
   onClose,
   onSettingsChange,
@@ -2496,6 +2794,7 @@ function InlineElementPopup({
   activeElement: ActiveBuilderElement;
   section: LandingpageSection;
   settings: LandingpageSectionSettings;
+  bookingCalendars: BookingCalendarReference[];
   device: Device;
   onClose: () => void;
   onSettingsChange: (patch: Partial<LandingpageSectionSettings>) => void;
@@ -2521,6 +2820,8 @@ function InlineElementPopup({
           <InlineButtonPopup activeElement={activeElement} section={section} settings={settings} onSettingsChange={onSettingsChange} onTextChange={onTextChange} />
         ) : activeElement.kind === "video" ? (
           <InlineVideoPopup settings={settings} onSettingsChange={onSettingsChange} />
+        ) : activeElement.kind === "booking" ? (
+          <CalendarBlockEditor settings={settings} bookingCalendars={bookingCalendars} initialTab={activeElement.field === "bookingCalendarBorderColor" ? "design" : "edit"} onSettingsChange={onSettingsChange} />
         ) : null}
       </div>
     </div>
@@ -2784,6 +3085,8 @@ function editableFieldsForSection(section: LandingpageSection): Array<{ field: E
   if (section.settings.videoUrl !== undefined) fields.push({ field: "videoUrl", type: "video" });
   if (section.settings.videoLabel !== undefined) fields.push({ field: "videoLabel", type: "text" });
   if (section.settings.buttonText !== undefined) fields.push({ field: "buttonText", type: "text" });
+  if (section.type === "booking") fields.push({ field: "bookingUrl", type: "booking" });
+  if (section.type === "legal") fields.push({ field: "legalText", type: "text" });
   if (section.type === "image") fields.push({ field: "imageUrl", type: "image" });
   return fields;
 }
@@ -2905,7 +3208,16 @@ function createBenefitBuilderElement(section: LandingpageSection, index: number,
   };
 }
 
-function visibleBuilderSections(sections: LandingpageSection[]) {
+function sectionsForTab(sections: LandingpageSection[], tab: PageTab) {
+  return tab === "landingpage" ? landingpageOnlySections(sections) : sectionsForPageTab(sections, tab);
+}
+
+function firstSectionForTab(sections: LandingpageSection[], tab: PageTab) {
+  return sectionsForTab(sections, tab)[0] ?? sections[0];
+}
+
+function visibleBuilderSections(sections: LandingpageSection[], activeTab: PageTab) {
+  if (activeTab !== "landingpage") return sectionsForTab(sections, activeTab);
   const preferred = sidebarSectionTypes
     .map((type) => sections.find((section) => section.type === type))
     .filter(Boolean) as LandingpageSection[];
@@ -2951,6 +3263,7 @@ function elementTreeItems(section: LandingpageSection): Array<{ key: string; lab
   if (section.settings.headline !== undefined) addField("headline", "Headline", "text", "Text", textIcon);
   if (section.settings.subheadline !== undefined) addField("subheadline", "Subheadline", "text", "Text", textIcon);
   if (section.settings.bodyText !== undefined) addField("bodyText", "Text", "text", "Textblock", textIcon);
+  if (section.type === "booking") addField("bookingUrl", "Kalender", "booking", "Buchungskalender", <SquarePlay className="h-3.5 w-3.5" />);
   if (section.settings.ctaText !== undefined && section.settings.ctaText !== "") addField("ctaText", section.type === "cta_button" ? "CTA Button" : "CTA Button", "button", "Button", buttonIcon);
   if (section.settings.videoUrl !== undefined) {
     addField("videoUrl", "Video", "video", "Video", videoIcon);
@@ -3184,6 +3497,7 @@ function deriveLegacyPayload(sections: LandingpageSection[], design: GlobalLandi
   const booking = findByType(sections, "booking")?.settings ?? {};
   const footer = findByType(sections, "footer")?.settings ?? {};
   const logo = resolveHeaderLogo(header);
+  const bookingDefaultUrl = booking.bookingUrl && !booking.bookingUrl.includes("{{") ? booking.bookingUrl : "";
   return {
     logoUrl: logo.imageUrl,
     headerLogoUrl: logo.imageUrl,
@@ -3221,6 +3535,9 @@ function deriveLegacyPayload(sections: LandingpageSection[], design: GlobalLandi
     finalCtaUrl: finalCta.ctaUrl ?? cta.ctaUrl ?? "",
     bookingHeadline: booking.headline ?? "",
     bookingSubheadline: booking.subheadline ?? "",
+    bookingMode: booking.bookingMode ?? "embedded_page",
+    bookingExternalButtonText: booking.bookingButtonText ?? "Termin extern öffnen",
+    ...(booking.bookingMode === "external_link" && bookingDefaultUrl ? { defaultCtaUrl: bookingDefaultUrl } : {}),
     footerText: footer.bodyText ?? "Tasklytic",
     primaryColor: design.primaryColor,
     accentColor: design.accentColor
@@ -3313,9 +3630,35 @@ function renderSettings(settings: LandingpageSectionSettings, prospect: LeadForT
     videoUrl: renderText(settings.videoUrl, prospect, { addressForm }),
     thumbnailUrl: renderText(settings.thumbnailUrl, prospect, { addressForm }),
     videoLabel: renderText(settings.videoLabel, prospect, { addressForm }),
+    bookingCalendarId: renderText(settings.bookingCalendarId, prospect, { addressForm }),
+    bookingCalendarName: renderText(settings.bookingCalendarName, prospect, { addressForm }),
     bookingUrl: renderText(settings.bookingUrl, prospect, { addressForm }),
+    bookingEmbedUrl: renderText(settings.bookingEmbedUrl, prospect, { addressForm }),
+    bookingEmbedCode: renderText(settings.bookingEmbedCode, prospect, { addressForm }),
+    bookingTimezone: renderText(settings.bookingTimezone, prospect, { addressForm }),
+    bookingButtonText: renderText(settings.bookingButtonText, prospect, { addressForm }),
+    bookingThankYouUrl: renderText(settings.bookingThankYouUrl, prospect, { addressForm }),
+    bookingCalendarBorderColor: renderText(settings.bookingCalendarBorderColor, prospect, { addressForm }),
+    bookingCalendarBackgroundColor: renderText(settings.bookingCalendarBackgroundColor, prospect, { addressForm }),
+    bookingCalendarTextColor: renderText(settings.bookingCalendarTextColor, prospect, { addressForm }),
+    bookingCalendarActiveDayColor: renderText(settings.bookingCalendarActiveDayColor, prospect, { addressForm }),
+    bookingCalendarActiveTextColor: renderText(settings.bookingCalendarActiveTextColor, prospect, { addressForm }),
+    bookingCalendarButtonColor: renderText(settings.bookingCalendarButtonColor, prospect, { addressForm }),
+    bookingCalendarButtonTextColor: renderText(settings.bookingCalendarButtonTextColor, prospect, { addressForm }),
+    bookingCalendarBorderRadius: renderText(settings.bookingCalendarBorderRadius, prospect, { addressForm }),
+    bookingCalendarInputRadius: renderText(settings.bookingCalendarInputRadius, prospect, { addressForm }),
+    bookingCalendarInputBorderWidth: renderText(settings.bookingCalendarInputBorderWidth, prospect, { addressForm }),
+    bookingCalendarWidth: renderText(settings.bookingCalendarWidth, prospect, { addressForm }),
+    bookingCalendarHeight: renderText(settings.bookingCalendarHeight, prospect, { addressForm }),
+    bookingCalendarSpacingTop: renderText(settings.bookingCalendarSpacingTop, prospect, { addressForm }),
+    bookingCalendarSpacingBottom: renderText(settings.bookingCalendarSpacingBottom, prospect, { addressForm }),
     legalUrl: renderText(settings.legalUrl, prospect, { addressForm }),
     legalText: renderText(settings.legalText, prospect, { addressForm }),
+    legalImprintText: renderText(settings.legalImprintText, prospect, { addressForm }),
+    legalPrivacyText: renderText(settings.legalPrivacyText, prospect, { addressForm }),
+    legalProcessingText: renderText(settings.legalProcessingText, prospect, { addressForm }),
+    legalTermsText: renderText(settings.legalTermsText, prospect, { addressForm }),
+    legalDisclaimerText: renderText(settings.legalDisclaimerText, prospect, { addressForm }),
     imageUrl: renderText(settings.imageUrl, prospect, { addressForm }),
     imageAlt: renderText(settings.imageAlt, prospect, { addressForm }),
     faqItems: settings.faqItems?.map((item) => ({ question: renderText(item.question, prospect, { addressForm }), answer: renderText(item.answer, prospect, { addressForm }) })),

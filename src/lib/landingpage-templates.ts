@@ -39,6 +39,10 @@ export const templateVariables = [
   "decisionMakerName",
   "decisionMakerRole",
   "landingpageUrl",
+  "slug",
+  "bookingPageUrl",
+  "thankYouUrl",
+  "legalPageUrl",
   "videoUrl",
   "calendarUrl",
   "Terminlink",
@@ -342,13 +346,44 @@ export type LandingpageSectionSettings = {
   videoPosition?: "left" | "right";
   videoLabel?: string;
   legalMode?: "external_link" | "text";
-  legalTab?: "impressum" | "datenschutz" | "cookies";
+  legalTab?: "impressum" | "datenschutz" | "cookies" | "datenverarbeitung" | "agb" | "disclaimer";
   legalUrl?: string;
   legalText?: string;
   bookingUrl?: string;
+  bookingMode?: "embedded_page" | "embedded_scroll" | "external_link";
+  bookingSource?: "global_default" | "tidycal" | "cal_com" | "custom_embed" | "external_url";
+  bookingCalendarId?: string;
+  bookingProvider?: "calendly" | "tidycal" | "cal_com" | "custom" | "microsoft_bookings";
+  bookingCalendarName?: string;
+  bookingEmbedUrl?: string;
+  bookingEmbedCode?: string;
+  bookingTimezone?: string;
+  bookingButtonText?: string;
+  bookingThankYouUrl?: string;
+  bookingCalendarActive?: boolean;
+  bookingShowBackButton?: boolean;
+  bookingCalendarBorderColor?: string;
+  bookingCalendarBackgroundColor?: string;
+  bookingCalendarTextColor?: string;
+  bookingCalendarActiveDayColor?: string;
+  bookingCalendarActiveTextColor?: string;
+  bookingCalendarButtonColor?: string;
+  bookingCalendarButtonTextColor?: string;
+  bookingCalendarBorderRadius?: string;
+  bookingCalendarInputRadius?: string;
+  bookingCalendarInputBorderWidth?: string;
+  bookingCalendarWidth?: string;
+  bookingCalendarHeight?: string;
+  bookingCalendarSpacingTop?: string;
+  bookingCalendarSpacingBottom?: string;
   imageUrl?: string;
   imageAlt?: string;
   spacerHeight?: string;
+  legalImprintText?: string;
+  legalPrivacyText?: string;
+  legalProcessingText?: string;
+  legalTermsText?: string;
+  legalDisclaimerText?: string;
   benefitItems?: Array<{ title: string; text: string }>;
   faqItems?: Array<{ question: string; answer: string }>;
   beforeItems?: string[];
@@ -358,6 +393,7 @@ export type LandingpageSectionSettings = {
 export type LandingpageSection = {
   id: string;
   type: LandingpageSectionType;
+  page?: "landingpage" | "booking" | "thank_you" | "legal";
   name: string;
   enabled: boolean;
   order: number;
@@ -867,13 +903,69 @@ export function defaultSectionSettings(type: LandingpageSectionType): Landingpag
     };
   }
   if (type === "booking") {
-    return { ...base, headline: "Termin vereinbaren", subheadline: "Wähle einen passenden Zeitpunkt aus.", bookingUrl: "{{calendarUrl}}", alignment: "center" };
+    return {
+      ...base,
+      headline: "Termin vereinbaren",
+      subheadline: "Wähle einen passenden Zeitpunkt aus.",
+      bodyText: "",
+      bookingMode: "embedded_page",
+      bookingSource: "global_default",
+      bookingCalendarId: "",
+      bookingProvider: "custom",
+      bookingCalendarName: "Standardkalender",
+      bookingUrl: "{{calendarUrl}}",
+      bookingEmbedUrl: "",
+      bookingEmbedCode: "",
+      bookingTimezone: "Europe/Berlin",
+      bookingButtonText: "Nach Terminbuchung weiter",
+      bookingThankYouUrl: "{{thankYouUrl}}",
+      bookingCalendarActive: true,
+      bookingShowBackButton: true,
+      bookingCalendarBorderColor: "#E5E7EB",
+      bookingCalendarBackgroundColor: "#FFFFFF",
+      bookingCalendarTextColor: "#111827",
+      bookingCalendarActiveDayColor: "#2563EB",
+      bookingCalendarActiveTextColor: "#FFFFFF",
+      bookingCalendarButtonColor: "#0F172A",
+      bookingCalendarButtonTextColor: "#FFFFFF",
+      bookingCalendarBorderRadius: "24",
+      bookingCalendarInputRadius: "12",
+      bookingCalendarInputBorderWidth: "1",
+      bookingCalendarWidth: "960",
+      bookingCalendarHeight: "640",
+      bookingCalendarSpacingTop: "32",
+      bookingCalendarSpacingBottom: "24",
+      ctaText: "Ich habe einen Termin gebucht",
+      ctaUrl: "{{thankYouUrl}}",
+      alignment: "center"
+    };
   }
   if (type === "thank_you") {
-    return { ...base, headline: "Termin erfolgreich gebucht, {{vorname}}!", bodyText: "Vielen Dank für {{deine}} Buchung. {{youReceive}} in Kürze eine Bestätigungsmail mit allen Details zu {{deinem}} Termin.", alignment: "center" };
+    return {
+      ...base,
+      headline: "Termin erfolgreich gebucht, {{vorname}}!",
+      bodyText: "Vielen Dank für {{deine}} Buchung. {{youReceive}} in Kürze eine Bestätigungsmail mit allen Details zu {{deinem}} Termin.",
+      ctaText: "Zurück zur Landingpage",
+      ctaUrl: "{{landingpageUrl}}",
+      alignment: "center"
+    };
   }
   if (type === "legal") {
-    return { ...base, legalTab: "impressum", legalMode: "text", legalUrl: "", legalText: "Rechtstext hier einfügen.", alignment: "left" };
+    return {
+      ...base,
+      headline: "Rechtliches",
+      subheadline: "Impressum, Datenschutz und Hinweise zur Datenverarbeitung.",
+      legalTab: "impressum",
+      legalMode: "text",
+      legalUrl: "",
+      legalText: "Rechtstext hier einfügen.",
+      legalImprintText: "Impressum hier einfügen.",
+      legalPrivacyText: "Datenschutzerklärung hier einfügen.",
+      legalProcessingText: "Hinweis zur Datenverarbeitung hier einfügen.",
+      legalTermsText: "",
+      legalDisclaimerText: "",
+      alignment: "left"
+    };
   }
   return base;
 }
@@ -1256,7 +1348,9 @@ export function legacyTemplateSections(template: LandingpageTemplate): Landingpa
         ...defaultSectionSettings("booking"),
         headline: template.bookingHeadline ?? "Termin vereinbaren",
         subheadline: template.bookingSubheadline ?? "",
-        bookingUrl: "{{calendarUrl}}"
+        bookingMode: template.bookingMode === "external_link" || template.bookingMode === "embedded_scroll" ? template.bookingMode : "embedded_page",
+        bookingUrl: "{{calendarUrl}}",
+        bookingButtonText: template.bookingExternalButtonText ?? "Nach Terminbuchung weiter"
       }
     },
     {
@@ -1342,6 +1436,7 @@ function normalizeLandingpageSection(raw: unknown, order: number): LandingpageSe
   return {
     id: typeof section.id === "string" && section.id ? section.id : `section_${order}`,
     type: section.type,
+    page: normalizeSectionPage(section.page, section.type),
     name: typeof section.name === "string" && section.name ? section.name : sectionLabels[section.type],
     enabled: section.enabled !== false,
     order: typeof section.order === "number" ? section.order : order,
@@ -1350,6 +1445,12 @@ function normalizeLandingpageSection(raw: unknown, order: number): LandingpageSe
     style: isResponsiveStyle(section.style) ? section.style : undefined,
     responsive: normalizeSectionResponsive(section, normalizedSettings)
   };
+}
+
+function normalizeSectionPage(value: unknown, type: LandingpageSectionType): LandingpageSection["page"] {
+  if (value === "booking" || value === "thank_you" || value === "legal") return value;
+  if (type === "booking" || type === "thank_you" || type === "legal") return type;
+  return "landingpage";
 }
 
 function normalizeSectionResponsive(section: Partial<LandingpageSection>, settings: LandingpageSectionSettings): ResponsiveStyle {
@@ -1438,14 +1539,20 @@ function renderSectionSettings(
   const addressForm = normalizeAddressForm(template.addressForm);
   const render = (value: string | null | undefined) => renderText(value, prospect, { addressForm });
   const addressed = applyAddressFormVariants(settings, addressForm);
+  const ctaUsesBooking = addressed.ctaUrl?.includes("{{calendarUrl}}")
+    || addressed.buttonTargetType === "internal_booking"
+    || addressed.buttonLinkType === "calendar";
+  const headerUsesBooking = addressed.headerCtaUrl?.includes("{{calendarUrl}}")
+    || addressed.buttonTargetType === "internal_booking"
+    || addressed.buttonLinkType === "calendar";
   return {
     ...addressed,
     headline: render(addressed.headline),
     subheadline: render(addressed.subheadline),
     bodyText: render(addressed.bodyText),
     ctaText: render(addressed.ctaText),
-    ctaUrl: addressed.ctaUrl?.includes("{{calendarUrl}}")
-      ? resolveBookingCtaUrl(addressed.ctaUrl, prospect, template)
+    ctaUrl: ctaUsesBooking
+      ? resolveBookingCtaUrl(addressed.ctaUrl || "{{calendarUrl}}", prospect, template)
       : render(addressed.ctaUrl),
     logoText: render(addressed.logoText),
     logoImageUrl: render(addressed.logoImageUrl),
@@ -1464,8 +1571,8 @@ function renderSectionSettings(
     menuItem2Text: render(addressed.menuItem2Text),
     menuItem3Text: render(addressed.menuItem3Text),
     headerCtaText: render(addressed.headerCtaText),
-    headerCtaUrl: addressed.headerCtaUrl?.includes("{{calendarUrl}}")
-      ? resolveBookingCtaUrl(addressed.headerCtaUrl, prospect, template)
+    headerCtaUrl: headerUsesBooking
+      ? resolveBookingCtaUrl(addressed.headerCtaUrl || "{{calendarUrl}}", prospect, template)
       : render(addressed.headerCtaUrl),
     buttonText: render(addressed.buttonText),
     videoUrl: render(addressed.videoUrl),
@@ -1473,9 +1580,35 @@ function renderSectionSettings(
     videoWebmUrl: render(addressed.videoWebmUrl),
     thumbnailUrl: render(addressed.thumbnailUrl),
     videoLabel: render(addressed.videoLabel),
+    bookingCalendarId: render(addressed.bookingCalendarId),
+    bookingCalendarName: render(addressed.bookingCalendarName),
     bookingUrl: addressed.bookingUrl?.includes("{{calendarUrl}}") ? getBookingUrl(prospect) : render(addressed.bookingUrl),
+    bookingEmbedUrl: render(addressed.bookingEmbedUrl),
+    bookingEmbedCode: render(addressed.bookingEmbedCode),
+    bookingTimezone: render(addressed.bookingTimezone),
+    bookingButtonText: render(addressed.bookingButtonText),
+    bookingThankYouUrl: render(addressed.bookingThankYouUrl),
+    bookingCalendarBorderColor: render(addressed.bookingCalendarBorderColor),
+    bookingCalendarBackgroundColor: render(addressed.bookingCalendarBackgroundColor),
+    bookingCalendarTextColor: render(addressed.bookingCalendarTextColor),
+    bookingCalendarActiveDayColor: render(addressed.bookingCalendarActiveDayColor),
+    bookingCalendarActiveTextColor: render(addressed.bookingCalendarActiveTextColor),
+    bookingCalendarButtonColor: render(addressed.bookingCalendarButtonColor),
+    bookingCalendarButtonTextColor: render(addressed.bookingCalendarButtonTextColor),
+    bookingCalendarBorderRadius: render(addressed.bookingCalendarBorderRadius),
+    bookingCalendarInputRadius: render(addressed.bookingCalendarInputRadius),
+    bookingCalendarInputBorderWidth: render(addressed.bookingCalendarInputBorderWidth),
+    bookingCalendarWidth: render(addressed.bookingCalendarWidth),
+    bookingCalendarHeight: render(addressed.bookingCalendarHeight),
+    bookingCalendarSpacingTop: render(addressed.bookingCalendarSpacingTop),
+    bookingCalendarSpacingBottom: render(addressed.bookingCalendarSpacingBottom),
     legalUrl: render(addressed.legalUrl),
     legalText: render(addressed.legalText),
+    legalImprintText: render(addressed.legalImprintText),
+    legalPrivacyText: render(addressed.legalPrivacyText),
+    legalProcessingText: render(addressed.legalProcessingText),
+    legalTermsText: render(addressed.legalTermsText),
+    legalDisclaimerText: render(addressed.legalDisclaimerText),
     faqItems: safeArray(addressed.faqItems).map((item) => ({
       question: render(item.question),
       answer: render(item.answer)
@@ -1569,8 +1702,17 @@ export function applyAddressFormVariants(settings: LandingpageSectionSettings, a
     headerCtaText: replace(settings.headerCtaText),
     buttonText: replace(settings.buttonText),
     videoLabel: replace(settings.videoLabel),
+    bookingCalendarName: replace(settings.bookingCalendarName),
+    bookingButtonText: replace(settings.bookingButtonText),
+    bookingThankYouUrl: replace(settings.bookingThankYouUrl),
     leftTitle: replace(settings.leftTitle),
     rightTitle: replace(settings.rightTitle),
+    legalText: replace(settings.legalText),
+    legalImprintText: replace(settings.legalImprintText),
+    legalPrivacyText: replace(settings.legalPrivacyText),
+    legalProcessingText: replace(settings.legalProcessingText),
+    legalTermsText: replace(settings.legalTermsText),
+    legalDisclaimerText: replace(settings.legalDisclaimerText),
     beforeItems: settings.beforeItems?.map((item) => replace(item) ?? ""),
     afterItems: settings.afterItems?.map((item) => replace(item) ?? ""),
     leftItems: settings.leftItems?.map((item) => replace(item) ?? ""),
@@ -1626,7 +1768,11 @@ export function buildTemplateVariables(prospect?: LeadForTemplate | null, landin
   const city = safeProspect.city ?? neutralTemplateFallbacks.city;
   const salutation = safeProspect.salutation ?? neutralTemplateFallbacks.salutation;
   const decisionMakerName = safeProspect.decisionMakerName ?? fullName;
-  const resolvedLandingpageUrl = landingpageUrl ?? safeProspect.landingpageUrl ?? (safeProspect.slug ? `/p/${safeProspect.slug}` : neutralTemplateFallbacks.landingpageUrl);
+  const slug = safeProspect.slug ?? "";
+  const resolvedLandingpageUrl = landingpageUrl ?? safeProspect.landingpageUrl ?? (slug ? `/p/${slug}` : neutralTemplateFallbacks.landingpageUrl);
+  const bookingPageUrl = slug ? `/p/${slug}/booking` : "";
+  const thankYouUrl = slug ? `/p/${slug}/thank-you` : "";
+  const legalPageUrl = slug ? `/p/${slug}/legal` : "";
   const calendarUrl = safeProspect.bookingUrl ?? safeProspect.calendarUrl ?? neutralTemplateFallbacks.calendarUrl;
   const addressVars = options.addressForm ? addressFormVariables(options.addressForm) : null;
   return {
@@ -1647,6 +1793,10 @@ export function buildTemplateVariables(prospect?: LeadForTemplate | null, landin
     decisionMakerName,
     decisionMakerRole: safeProspect.decisionMakerRole ?? "",
     landingpageUrl: resolvedLandingpageUrl,
+    slug,
+    bookingPageUrl,
+    thankYouUrl,
+    legalPageUrl,
     videoUrl: safeProspect.personalVideoUrl ?? safeProspect.videoUrl ?? "",
     calendarUrl,
     Terminlink: calendarUrl,
@@ -1789,15 +1939,20 @@ export function resolveBookingCtaUrl(
 ): string {
   if (preferred?.includes("{{calendarUrl}}")) {
     const bookingUrl = getBookingUrl(prospect);
-    if (bookingUrl && template.bookingMode === "external_link") return bookingUrl;
-    if (bookingUrl && prospect.slug) return `/p/${prospect.slug}/booking`;
+    if (template.bookingMode === "external_link") {
+      if (bookingUrl) return bookingUrl;
+      if (template.defaultCtaUrl) return renderText(template.defaultCtaUrl, prospect);
+    }
+    if (template.bookingMode === "embedded_scroll") return "#booking";
+    if (prospect.slug) return `/p/${prospect.slug}/booking`;
   }
 
   const rendered = renderText(preferred, prospect).trim();
   if (rendered && rendered !== "{{calendarUrl}}") return rendered;
   const bookingUrl = getBookingUrl(prospect);
   if (bookingUrl && template.bookingMode === "external_link") return bookingUrl;
-  if (bookingUrl && prospect.slug) return `/p/${prospect.slug}/booking`;
+  if (template.bookingMode === "embedded_scroll") return "#booking";
+  if (prospect.slug && template.bookingMode !== "external_link") return `/p/${prospect.slug}/booking`;
   if (bookingUrl) return bookingUrl;
   return template.defaultCtaUrl ?? "#";
 }

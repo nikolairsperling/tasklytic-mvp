@@ -2,6 +2,7 @@ import type { Prisma, Prospect } from "@prisma/client";
 import { z } from "zod";
 import { getEffectiveOpenAiApiKey } from "@/lib/integrations";
 import { classifyResearchFailure } from "@/lib/lead-research";
+import { buildCompanyDescription, buildPainHypothesis as buildCleanPainHypothesis, cleanLeadText, stateFromGermanPostalCode } from "@/lib/lead-data-quality";
 import { prisma } from "@/lib/prisma";
 import { requireOfferForProspect, userOfferContextText } from "@/lib/user-offer";
 
@@ -1579,6 +1580,7 @@ function analyzeProspectHeuristically(pages: PageFetchResult[], prospect: Prospe
   const painScore = clampConfidence((directPainSignal ? 35 : 0) + (logisticsNear ? 20 : 0) + (services.length >= 3 ? 15 : 0) + (companyEmail || companyPhone ? 10 : 0) + (fleet || locations ? 15 : 5));
   const industry = logisticsNear ? "Spedition / Logistik" : detectNonLogisticsIndustry(lower);
   const companySummary = buildCompanySummary(legalName, industry, businessFields, services);
+  const derivedState = stateFromGermanPostalCode(address.zip ?? prospect.postalCode);
   const analysis: EnrichmentAnalysis = {
     contactPerson,
     contactCandidates,
@@ -1594,7 +1596,7 @@ function analyzeProspectHeuristically(pages: PageFetchResult[], prospect: Prospe
       street: address.street,
       zip: address.zip,
       city: address.city,
-      state: null,
+      state: derivedState,
       country: address.country,
       businessFields,
       services,
@@ -1623,7 +1625,7 @@ function analyzeProspectHeuristically(pages: PageFetchResult[], prospect: Prospe
       icpLabel: icpLabel(icpScore),
       painScore,
       painType: logisticsNear ? "Operative Abstimmung / Prozessautomatisierung" : services.length ? "Prozessautomatisierung im operativen Geschäft" : null,
-      painSummary: directPainSignal ?? inferredPainHypothesis,
+      painSummary: cleanLeadText(directPainSignal, 2) ?? inferredPainHypothesis,
       painHypothesis: inferredPainHypothesis,
       directPainSignal,
       inferredPainHypothesis,
@@ -1724,7 +1726,8 @@ function buildProspectUpdateFromAnalysis(prospect: Prospect, analysis: Enrichmen
   };
   const contact = analysis.contactPerson;
   const primaryCandidate = analysis.contactCandidates[0];
-  if (isValidContactPerson(contact, prospect, websiteUrl) && (primaryCandidate?.score ?? 0) > 50) {
+  const primaryContactIsClear = Boolean(primaryCandidate && ((primaryCandidate.score ?? 0) >= 76 || primaryCandidate.confidenceLabel === "high" || (analysis.contactCandidates.length === 1 && (primaryCandidate.score ?? 0) >= 65)));
+  if (isValidContactPerson(contact, prospect, websiteUrl) && primaryContactIsClear) {
     const replaceContact = shouldReplaceContact(prospect, primaryCandidate);
     setText("salutation", prospect.salutation, contact.anrede);
     if (replaceContact && contact.firstName) data.firstName = contact.firstName;
@@ -1756,7 +1759,7 @@ function buildProspectUpdateFromAnalysis(prospect: Prospect, analysis: Enrichmen
   setText("city", prospect.city, analysis.company.city);
   setText("postalCode", prospect.postalCode, analysis.company.zip);
   setText("street", prospect.street, analysis.company.street);
-  setText("state", prospect.state, analysis.company.state);
+  setText("state", prospect.state, analysis.company.state ?? stateFromGermanPostalCode(analysis.company.zip ?? prospect.postalCode));
   setText("country", prospect.country, analysis.company.country);
   setText("companyEmail", prospect.companyEmail, analysis.companyContact.generalEmail);
   setText("companyPhone", prospect.companyPhone, analysis.companyContact.generalPhone);
@@ -1771,8 +1774,8 @@ function buildProspectUpdateFromAnalysis(prospect: Prospect, analysis: Enrichmen
   setNumber("locationsCount", prospect.locationsCount, locationCount);
   if (prospect.businessFields.length === 0 && analysis.company.businessFields.length > 0) data.businessFields = uniqueStrings(analysis.company.businessFields);
   if (isEmptyValue(prospect.services) && analysis.company.services.length > 0) data.services = uniqueStrings(analysis.company.services) as Prisma.InputJsonValue;
-  setText("companyDescription", prospect.companyDescription, analysis.companyProfile.whatTheyDo, true);
-  setText("companyProfileSummary", prospect.companyProfileSummary, analysis.companyProfile.companySummary, true);
+  setText("companyDescription", prospect.companyDescription, cleanLeadText(analysis.companyProfile.whatTheyDo, 2) ?? buildCompanyDescription({ ...prospect, industry: analysis.companyProfile.industry, businessFields: analysis.company.businessFields, services: analysis.company.services, state: analysis.company.state ?? prospect.state }), true);
+  setText("companyProfileSummary", prospect.companyProfileSummary, cleanLeadText(analysis.companyProfile.companySummary, 3), true);
   setText("industry", prospect.industry, analysis.companyProfile.industry);
   setText("specialization", prospect.specialization, analysis.company.specialization);
   setText("targetCustomers", prospect.targetCustomers, analysis.companyProfile.targetCustomers);
@@ -1783,8 +1786,8 @@ function buildProspectUpdateFromAnalysis(prospect: Prospect, analysis: Enrichmen
   setNumber("fitScore", prospect.fitScore, analysis.icpPain.icpScore);
   setNumber("painScore", prospect.painScore, analysis.icpPain.painScore);
   setText("painType", prospect.painType, analysis.icpPain.painType, true);
-  setText("painSummary", prospect.painSummary, analysis.icpPain.painSummary ?? analysis.icpPain.painHypothesis, true);
-  setText("customPainPoint", prospect.customPainPoint, analysis.icpPain.painHypothesis, true);
+  setText("painSummary", prospect.painSummary, cleanLeadText(analysis.icpPain.painSummary ?? analysis.icpPain.painHypothesis, 4) ?? buildCleanPainHypothesis({ ...prospect, industry: analysis.companyProfile.industry, businessFields: analysis.company.businessFields, services: analysis.company.services, manualProcessSignal: Boolean(analysis.icpPain.inferredPainHypothesis) }), true);
+  setText("customPainPoint", prospect.customPainPoint, cleanLeadText(analysis.icpPain.painHypothesis, 4), true);
     setText("personalizationAngle", prospect.personalizationAngle, analysis.icpPain.campaignSuggestion);
   data.manualProcessSignal = prospect.manualProcessSignal || Boolean(analysis.icpPain.inferredPainHypothesis);
     data.digitalWeaknessSignal = prospect.digitalWeaknessSignal || /fax|telefon|e-mail|email|formular|pdf/i.test(pages.map((page) => page.text).join(" "));

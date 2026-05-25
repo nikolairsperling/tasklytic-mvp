@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown, ChevronLeft, ChevronRight, Copy, ExternalLink, Eye, FilePlus2, FolderPlus, ListPlus, Loader2, Pencil, PhoneCall, PhoneOff, Search, Sparkles, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, Copy, ExternalLink, Eye, FilePlus2, FolderPlus, ListPlus, Loader2, Pencil, PhoneCall, PhoneOff, Search, Sparkles, Trash2, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import React, { useEffect, useMemo, useState } from "react";
@@ -410,6 +410,7 @@ export function ProspectList({
   const [researchCompletedCount, setResearchCompletedCount] = useState(0);
   const [researchTotalCount, setResearchTotalCount] = useState(0);
   const [researchDetailsProspect, setResearchDetailsProspect] = useState<ProspectListItem | null>(null);
+  const [printMailingProspect, setPrintMailingProspect] = useState<ProspectListItem | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [selectedMode, setSelectedMode] = useState<SelectionMode>("page");
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
@@ -1209,7 +1210,7 @@ export function ProspectList({
                   onDetails={() => setResearchDetailsProspect(prospect)}
                 />
                 <LandingpageStatusBadge prospect={prospect} />
-                {prospect.printMailingRecommended ? <PrintMailingRecommendation /> : null}
+                {prospect.printMailingRecommended ? <PrintMailingRecommendation onClick={() => setPrintMailingProspect(prospect)} /> : null}
               </div>
 
               <div className="mt-4 grid gap-3">
@@ -1420,7 +1421,7 @@ export function ProspectList({
                       onDetails={() => setResearchDetailsProspect(prospect)}
                     />
                     <LandingpageStatusBadge prospect={prospect} />
-                    {prospect.printMailingRecommended ? <PrintMailingRecommendation /> : null}
+                    {prospect.printMailingRecommended ? <PrintMailingRecommendation onClick={() => setPrintMailingProspect(prospect)} /> : null}
                   </div>
 
                   <div className="min-w-0">
@@ -1674,6 +1675,13 @@ export function ProspectList({
         />
       ) : null}
 
+      {printMailingProspect ? (
+        <PrintMailingDetailsModal
+          prospect={printMailingProspect}
+          onClose={() => setPrintMailingProspect(null)}
+        />
+      ) : null}
+
       {drawerProspect ? (
         <div className="fixed inset-0 z-[120] bg-slate-950/30">
           <div className="lead-detail-panel lead-detail-drawer-shell ml-auto bg-slate-50 shadow-2xl">
@@ -1904,12 +1912,73 @@ function AiCallRecommendation({
   );
 }
 
-function PrintMailingRecommendation() {
+function PrintMailingRecommendation({ onClick }: { onClick: () => void }) {
   return (
-    <span className="inline-flex min-h-7 max-w-full items-center gap-1.5 rounded-full bg-violet-50 px-2.5 py-1 text-xs font-semibold text-violet-800 ring-1 ring-violet-100">
+    <button
+      type="button"
+      onClick={(event) => {
+        event.stopPropagation();
+        onClick();
+      }}
+      className="inline-flex min-h-8 max-w-full items-center gap-1.5 rounded-full bg-violet-50 px-2.5 py-1 text-xs font-semibold text-violet-800 ring-1 ring-violet-100 transition hover:bg-violet-100 hover:text-violet-950"
+      aria-label="Printversand Empfehlung öffnen"
+      title="Printversand Empfehlung öffnen"
+    >
       <FilePlus2 className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
       <span className="truncate">Printversand empfohlen</span>
-    </span>
+    </button>
+  );
+}
+
+function PrintMailingDetailsModal({ prospect, onClose }: { prospect: ProspectListItem; onClose: () => void }) {
+  const contact = prospect.decisionMakerName || prospect.decisionMakerRole || prospect.decisionMakerEmail
+    ? [prospect.decisionMakerName, prospect.decisionMakerRole, prospect.decisionMakerEmail].filter(Boolean).join(" · ")
+    : "Ansprechpartner noch offen";
+  const address = [prospect.companyName, [prospect.city, prospect.country].filter(Boolean).join(", ")].filter(Boolean).join("\n");
+  const reason = prospect.painType
+    ? `Printversand empfohlen, weil der Lead in "${prospect.painType}" passt und ein ruhiger, vorbereiteter Briefkontakt sinnvoll sein kann.`
+    : "Printversand empfohlen, weil noch kein sauberer digitaler Ansprechpartner bestätigt ist oder ein zusätzlicher Offline-Touchpoint sinnvoll sein kann.";
+  const letterText = `Hallo,\n\nwir haben ${prospect.companyName} kurz geprüft und sehen mögliche Ansatzpunkte, operative Backoffice- oder Abstimmungsprozesse zu automatisieren.\n\nGern bereiten wir eine kurze Einschätzung vor, wo Tasklytic in Ihren Abläufen schnell Entlastung schaffen kann.`;
+  return (
+    <div className="fixed inset-0 z-[130] grid place-items-center bg-slate-950/50 p-4">
+      <div role="dialog" aria-modal="true" aria-labelledby="print-mailing-detail-title" className="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-2xl">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h3 id="print-mailing-detail-title" className="text-lg font-semibold text-ink">Printversand Empfehlung</h3>
+            <p className="mt-1 text-sm text-slate-500">Detailansicht für Vorbereitung und Prüfung. Es wird noch nichts versendet.</p>
+          </div>
+          <button type="button" onClick={onClose} className="grid h-10 w-10 place-items-center rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50" aria-label="Schließen">
+            <X className="h-4 w-4" aria-hidden="true" />
+          </button>
+        </div>
+        <div className="mt-5 grid gap-3 sm:grid-cols-2">
+          <PrintInfo label="Warum empfohlen?" value={reason} />
+          <PrintInfo label="Status" value="vorbereitet" />
+          <PrintInfo label="Firmenadresse" value={address || "k. A."} />
+          <PrintInfo label="Ansprechpartner" value={contact} />
+        </div>
+        <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Empfohlener Brieftext</p>
+          <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-700">{letterText}</p>
+        </div>
+        <div className="mt-5 flex flex-wrap justify-end gap-3">
+          <button type="button" onClick={onClose} className="btn-secondary rounded-xl px-4 py-2 text-sm font-medium">Nicht senden</button>
+          <button type="button" className="btn-primary inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold">
+            <FilePlus2 className="h-4 w-4" aria-hidden="true" />
+            Printversand vorbereiten
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PrintInfo({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl bg-slate-50 p-3">
+      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">{label}</p>
+      <p className="mt-2 whitespace-pre-wrap text-sm font-medium leading-6 text-slate-800">{value}</p>
+    </div>
   );
 }
 
@@ -2006,7 +2075,7 @@ export function LandingpageActions({ slug, landingpageUrl }: { slug: string | nu
         disabled={!hasLandingpage}
         aria-label="Landingpage Vorschau"
         title="Vorschau"
-        className="grid h-8 w-8 place-items-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+        className="grid h-9 w-9 place-items-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-40"
       >
         <Eye className="h-3.5 w-3.5" aria-hidden="true" />
       </button>
@@ -2016,7 +2085,7 @@ export function LandingpageActions({ slug, landingpageUrl }: { slug: string | nu
         title="Öffnen"
         aria-disabled={!hasLandingpage}
         tabIndex={hasLandingpage ? undefined : -1}
-        className={`grid h-8 w-8 place-items-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 ${hasLandingpage ? "" : "pointer-events-none opacity-40"}`}
+        className={`grid h-9 w-9 place-items-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 ${hasLandingpage ? "" : "pointer-events-none opacity-40"}`}
       >
         <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
       </a>
@@ -2026,7 +2095,7 @@ export function LandingpageActions({ slug, landingpageUrl }: { slug: string | nu
         disabled={!hasLandingpage}
         aria-label="Landingpage Link kopieren"
         title="Kopieren"
-        className="grid h-8 w-8 place-items-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+        className="grid h-9 w-9 place-items-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-40"
       >
         <Copy className="h-3.5 w-3.5" aria-hidden="true" />
       </button>

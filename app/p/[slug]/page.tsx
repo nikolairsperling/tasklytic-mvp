@@ -18,8 +18,10 @@ import { LandingHero } from "@/components/landing/LandingHero";
 import { LandingNavbar } from "@/components/landing/LandingNavbar";
 import { LandingPageLayout } from "@/components/landing/LandingPageLayout";
 import { LandingVideo } from "@/components/landing/LandingVideo";
+import { resolveBookingEmbed, type BookingCalendarReference } from "@/lib/booking-embed";
+import { bookingCalendarButtonStyle, bookingCalendarIframeStyle, bookingCalendarPlaceholderTokens, bookingCalendarShellStyle } from "@/lib/booking-calendar-style";
+import { landingpageOnlySections } from "@/lib/landingpage-page-flow";
 import { backgroundStyleFromSettings, elementStyleByField, elementStyleByListItem } from "@/lib/landingpage-style";
-import { getLegalLink, getLegalSettings } from "@/lib/legal-settings";
 import { landingDesignTokens } from "@/styles/landing-design";
 
 export const dynamic = "force-dynamic";
@@ -48,21 +50,26 @@ export default async function Landingpage({ params }: LandingpageProps) {
     const template = await getActiveTemplate(prospect);
     const design = getGlobalLandingpageDesign(template);
     const sections = renderLandingpageSections(template, prospect);
-    const reportAsset = await prisma.reportAsset.findFirst({
-      where: { prospectId: prospect.id },
-      orderBy: { createdAt: "desc" }
-    });
-    const legalSettings = await getLegalSettings();
+    const [reportAsset, defaultCalendar] = await Promise.all([
+      prisma.reportAsset.findFirst({
+        where: { prospectId: prospect.id },
+        orderBy: { createdAt: "desc" }
+      }),
+      prisma.bookingCalendar.findFirst({
+        where: { isActive: true },
+        orderBy: [{ isDefault: "desc" }, { updatedAt: "desc" }]
+      })
+    ]);
     const legalLinks = {
-      imprint: getLegalLink(legalSettings, "impressum"),
-      privacy: getLegalLink(legalSettings, "datenschutz"),
-      cookies: getLegalLink(legalSettings, "cookies")
+      imprint: { href: `/p/${slug}/legal?tab=impressum`, external: false },
+      privacy: { href: `/p/${slug}/legal?tab=datenschutz`, external: false },
+      cookies: { href: `/p/${slug}/legal?tab=cookies`, external: false }
     };
 
     return (
       <LandingPageLayout design={design}>
         <ProspectActivityTracker slug={slug} page="landingpage" />
-        {sections.filter((section) => section.type !== "personal_video").map((section) => (
+        {landingpageOnlySections(sections).map((section) => (
           <LandingpageSection
             key={section.id}
             section={section}
@@ -72,6 +79,7 @@ export default async function Landingpage({ params }: LandingpageProps) {
             reportUrl={reportAsset?.reportUrl ?? null}
           />
         ))}
+        {template.bookingMode === "embedded_scroll" ? <InlineBookingSection section={sections.find((section) => section.type === "booking")} prospect={prospect} fallbackCalendar={defaultCalendar} /> : null}
         <LandingpageLegalFooter links={legalLinks} />
         <CookieBanner privacyHref={legalLinks.privacy.href} cookiesHref={legalLinks.cookies.href} />
       </LandingPageLayout>
@@ -80,6 +88,41 @@ export default async function Landingpage({ params }: LandingpageProps) {
     console.error("Landingpage render failed", error);
     return <LandingpageError title="Vorschau konnte nicht geladen werden." />;
   }
+}
+
+function InlineBookingSection({ section, prospect, fallbackCalendar }: { section?: RenderedLandingpageSection; prospect: Parameters<typeof resolveBookingEmbed>[1]; fallbackCalendar?: BookingCalendarReference | null }) {
+  if (!section) return null;
+  const settings = section.settings;
+  const booking = resolveBookingEmbed(settings, prospect, fallbackCalendar);
+  return (
+    <section id="booking" className="landing-section px-5 py-12" style={backgroundStyleFromSettings(settings, settings.backgroundColor || "#f6f8fb")}>
+      <div className="mx-auto max-w-6xl text-center">
+        <h2 className="break-words text-3xl font-extrabold leading-tight text-slate-950 md:text-5xl">{settings.headline || "Termin vereinbaren"}</h2>
+        {settings.subheadline ? <p className="mx-auto mt-4 max-w-3xl text-base leading-7 text-slate-600 md:text-lg">{settings.subheadline}</p> : null}
+        {booking.active && booking.embedUrl ? (
+          <div className="mx-auto overflow-hidden border bg-white shadow-panel" style={bookingCalendarShellStyle(settings)}>
+            <iframe src={booking.embedUrl} title={booking.displayName} loading="lazy" className="w-full bg-white" style={bookingCalendarIframeStyle(settings)} allow="clipboard-write; fullscreen; payment" />
+          </div>
+        ) : (
+          <InlineBookingFallback settings={settings} />
+        )}
+        {booking.externalUrl ? <div className="mt-5"><CTAButton href={booking.externalUrl} text="Kalender extern öffnen" variant="secondary" /></div> : null}
+      </div>
+    </section>
+  );
+}
+
+function InlineBookingFallback({ settings }: { settings: RenderedLandingpageSection["settings"] }) {
+  const tokens = bookingCalendarPlaceholderTokens(settings);
+  return (
+    <div className="mx-auto grid min-h-[380px] place-items-center border bg-white p-8 shadow-panel" style={bookingCalendarShellStyle(settings)}>
+      <div className="w-full max-w-2xl rounded-3xl border bg-slate-50 p-6 text-left" style={{ borderColor: tokens.borderColor }}>
+        <p className="text-sm font-semibold text-slate-800">Kein Buchungskalender hinterlegt.</p>
+        <div className="mt-6 grid grid-cols-7 gap-2">{Array.from({ length: 21 }).map((_, index) => <div key={index} className="aspect-square rounded-xl bg-white shadow-sm" style={index === 9 ? { backgroundColor: tokens.activeDayColor, borderRadius: tokens.inputRadius } : { borderRadius: tokens.inputRadius }} />)}</div>
+        <button type="button" disabled className="mt-6 rounded-full px-5 py-3 text-sm font-bold opacity-70" style={bookingCalendarButtonStyle(settings)}>Kalender einrichten</button>
+      </div>
+    </div>
+  );
 }
 
 function LandingpageError({ title }: { title: string }) {

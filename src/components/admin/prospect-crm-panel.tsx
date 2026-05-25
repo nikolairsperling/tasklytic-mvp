@@ -6,6 +6,8 @@ import {
   Bell,
   Briefcase,
   CalendarCheck,
+  CheckCircle2,
+  ChevronDown,
   Copy,
   ExternalLink,
   Eye,
@@ -15,7 +17,9 @@ import {
   MousePointerClick,
   Pencil,
   Play,
+  Printer,
   Save,
+  ShieldCheck,
   Phone,
   Trash2,
   Video,
@@ -26,6 +30,7 @@ import { useRouter } from "next/navigation";
 import React, { useEffect, useMemo, useState, useTransition } from "react";
 import { buildTelHref } from "@/lib/calling";
 import { calculateFollowUpAt, type FollowUpStatus } from "@/lib/follow-ups";
+import { buildCompanyDescription, buildPainHypothesis, buildStructuredLeadInsights, cleanLeadText, getLeadDataQuality, normalizeLeadContactCandidates, stateFromGermanPostalCode } from "@/lib/lead-data-quality";
 import { prospectEventLabel } from "@/lib/prospect-events";
 import { missingOfferMessage } from "@/lib/user-offer-constants";
 import { useCallingSettings } from "@/components/admin/use-calling-settings";
@@ -136,6 +141,7 @@ export type ProspectCrmPanelData = {
   slug: string | null;
   landingpageUrl: string | null;
   landingpageReviewStatus: string;
+  printMailingRecommended?: boolean | null;
   personalVideoStatus: string;
   personalVideoUrl: string | null;
   videoUrl: string | null;
@@ -249,6 +255,7 @@ export function ProspectCrmPanel({ prospect, previousProspectId, nextProspectId,
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showEnrichmentDebug, setShowEnrichmentDebug] = useState(false);
   const [showContactCandidates, setShowContactCandidates] = useState(false);
+  const [showPrintMailingModal, setShowPrintMailingModal] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [isPending, startTransition] = useTransition();
   const [followUpAtDraft, setFollowUpAtDraft] = useState(() => toDateTimeLocalValue(currentProspect.followUpAt));
@@ -267,7 +274,12 @@ export function ProspectCrmPanel({ prospect, previousProspectId, nextProspectId,
   const callNumber = currentProspect.phone ?? currentProspect.companyPhone;
   const callHref = buildTelHref(callNumber, callingSettings);
   const painSignal = useMemo(() => getPrimaryPainSignal(currentProspect.painSignals), [currentProspect.painSignals]);
-  const contactCandidates = safeArray(getContactCandidates(currentProspect));
+  const contactCandidates = useMemo(() => normalizeLeadContactCandidates(getContactCandidates(currentProspect), currentProspect.decisionMakerName), [currentProspect.contactCandidates, currentProspect.decisionMakerName, currentProspect.researchSources]);
+  const displayState = currentProspect.state ?? stateFromGermanPostalCode(currentProspect.postalCode);
+  const companyDescription = buildCompanyDescription({ ...currentProspect, state: displayState });
+  const painHypothesis = buildPainHypothesis(currentProspect);
+  const structuredInsights = buildStructuredLeadInsights(currentProspect);
+  const dataQuality = getLeadDataQuality(currentProspect);
   const hasContactPerson = Boolean(reliableContact);
 
   useEffect(() => {
@@ -778,7 +790,7 @@ async function applyContactCandidate(candidate: UiContactCandidate) {
                   ["Zielgruppe", currentProspect.targetGroup?.name ?? (targetGroupId ? safeArray(currentProspect.targetGroups).find((group) => group.id === targetGroupId)?.name : "Spedition")],
                   ["passendes Angebot", offers.find((offer) => offer.id === selectedOfferId)?.name ?? currentProspect.activeCampaign?.offerName ?? currentProspect.suggestedOffer?.name ?? "Bitte Angebot auswählen"],
                   ["ICP Score", String(currentProspect.icpFitScore ?? currentProspect.icpScore ?? 0)],
-                  ["Schmerzpunkt-Hypothese", currentProspect.painSummary ?? currentProspect.painType],
+                  ["Schmerzpunkt-Hypothese", painHypothesis],
                   ["Kampagnenvorschlag", currentProspect.activeCampaign?.name ?? "Neue Kampagne aus Empfehlung"]
                 ]} />
                 <label className="block space-y-1">
@@ -800,6 +812,28 @@ async function applyContactCandidate(candidate: UiContactCandidate) {
                 </div>
               </div>
             </Panel>
+            <Panel title="Datenqualität">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <QualityBadge icon={<ShieldCheck className="h-4 w-4" aria-hidden="true" />} label="Ansprechpartner" value={dataQuality.contact} />
+                <QualityBadge icon={<CheckCircle2 className="h-4 w-4" aria-hidden="true" />} label="Pain-Hypothese" value={dataQuality.pain} />
+                <QualityBadge icon={<FileText className="h-4 w-4" aria-hidden="true" />} label="Datenquelle" value={dataQuality.sources} />
+                <QualityBadge icon={<ExternalLink className="h-4 w-4" aria-hidden="true" />} label="Landingpage" value={dataQuality.landingpage} />
+              </div>
+            </Panel>
+            {currentProspect.printMailingRecommended ? (
+              <Panel title="Printversand">
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-violet-100 bg-violet-50 p-4">
+                  <div>
+                    <p className="text-sm font-semibold text-violet-950">Printversand empfohlen</p>
+                    <p className="mt-1 text-sm text-violet-800">Dieser Lead wirkt für einen vorbereiteten Briefkontakt geeignet.</p>
+                  </div>
+                  <button type="button" onClick={() => setShowPrintMailingModal(true)} className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-violet-700 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-800">
+                    <Printer className="h-4 w-4" aria-hidden="true" />
+                    Details öffnen
+                  </button>
+                </div>
+              </Panel>
+            ) : null}
             {isEditing ? (
               <Panel title="Lead bearbeiten">
                 <div className="space-y-4">
@@ -884,24 +918,9 @@ async function applyContactCandidate(candidate: UiContactCandidate) {
                 </div>
               )}
               {contactCandidates.length > 0 ? (
-                <button type="button" onClick={() => setShowContactCandidates((value) => !value)} className="btn-secondary mt-4 inline-flex rounded-xl px-3 py-2 text-sm font-semibold">
-                  {showContactCandidates ? "Kontaktkandidaten ausblenden" : "Kontaktkandidaten prüfen"}
+                <button type="button" onClick={() => setShowContactCandidates(true)} className="btn-secondary mt-4 inline-flex rounded-xl px-3 py-2 text-sm font-semibold">
+                  Kontaktkandidaten prüfen
                 </button>
-              ) : null}
-              {showContactCandidates && contactCandidates.length > 0 ? (
-                <div className="mt-4 space-y-2">
-                  <h3 className="text-sm font-semibold text-ink">Gefundene Kontaktkandidaten</h3>
-                  {contactCandidates.map((candidate, index) => (
-                    <div key={`${candidate.fullName}-${index}`} className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm">
-                      <p className="font-semibold text-ink">{candidate.fullName}</p>
-                      <p className="text-slate-600">{[candidate.role, candidate.email, candidate.phone].filter(Boolean).join(" · ")}</p>
-                      <p className="mt-1 text-xs text-slate-500">{[formatContactConfidence(candidate.confidenceLabel), candidate.sourceArea ? formatSourceArea(candidate.sourceArea) : null, candidate.sourceUrl].filter(Boolean).join(" · ")}</p>
-                      <button type="button" onClick={() => runAction(() => applyContactCandidate(candidate))} className="btn-primary mt-2 rounded-xl px-3 py-2 text-xs font-semibold">
-                        Als Hauptkontakt übernehmen
-                      </button>
-                    </div>
-                  ))}
-                </div>
               ) : null}
             </Panel>
             <Panel title="Firmenkontakt">
@@ -920,7 +939,7 @@ async function applyContactCandidate(candidate: UiContactCandidate) {
                 ["Stadt", currentProspect.city],
                 ["PLZ", currentProspect.postalCode],
                 ["Straße", currentProspect.street],
-                ["Bundesland", currentProspect.state],
+                ["Bundesland", displayState],
                 ["Land", currentProspect.country],
                 ["Mitarbeiterzahl", currentProspect.employeeRange ?? (currentProspect.employeeCount ? String(currentProspect.employeeCount) : null)],
                 ["Fahrzeuge", currentProspect.vehicleCount ? String(currentProspect.vehicleCount) : null],
@@ -930,12 +949,12 @@ async function applyContactCandidate(candidate: UiContactCandidate) {
                 ["Firmenstatus", currentProspect.companyStatus],
                 ["ICP Score", String(currentProspect.icpScore)],
                 ["Pain Type", painSignal.type],
-                ["Pain Summary", currentProspect.customPainPoint ?? painSignal.label ?? (currentProspect.painScore > 0 ? "Pain-Signale erkannt." : null)]
+                ["Pain Summary", currentProspect.customPainPoint ?? painSignal.label ?? (currentProspect.painScore > 0 ? painHypothesis : null)]
               ]} />
             </Panel>
             <Panel title="Firmenprofil">
               <InfoGrid emptyText="Nicht gefunden" items={[
-                ["Was macht die Firma?", currentProspect.companyDescription],
+                ["Was macht die Firma?", companyDescription],
                 ["Branche", currentProspect.industry],
                 ["Leistungen", formatList(currentProspect.services)],
                 ["Größe", formatCompanySize(currentProspect.companySizeLabel)],
@@ -953,9 +972,7 @@ async function applyContactCandidate(candidate: UiContactCandidate) {
                   ["Pain Score", String(currentProspect.painScore ?? 0)],
                   ["Signal erkannt", currentProspect.hiringSignal ? "Personalbedarf erkannt" : null],
                   ["Schmerzpunkt-Hypothese", currentProspect.painType],
-                  ["Hypothese-Zusammenfassung", currentProspect.painSummary],
-                  ["Begründung / Hinweise", formatEvidence(currentProspect.painEvidence)],
-                  ["Quellen", formatSources(currentProspect.researchSources)],
+                  ["Hypothese-Zusammenfassung", painHypothesis],
                   ["Research Status", formatResearchStatus(currentProspect.researchStatus)],
                   ["Letzter Versuch", currentProspect.lastResearchAt ? formatAbsoluteDate(currentProspect.lastResearchAt) : null],
                   ["Letzte erfolgreiche Analyse", currentProspect.lastSuccessfulResearchAt || currentProspect.researchedAt ? formatAbsoluteDate((currentProspect.lastSuccessfulResearchAt ?? currentProspect.researchedAt) as string) : null],
@@ -965,7 +982,16 @@ async function applyContactCandidate(candidate: UiContactCandidate) {
                   ["Quelle", currentProspect.sourceUrl],
                   ["Letzter Analyseversuch", currentProspect.lastAttemptAt ? formatAbsoluteDate(currentProspect.lastAttemptAt) : null]
                 ]} />
-                <ResearchSourcesView value={currentProspect.researchSources} />
+                <StructuredInsightsView insights={structuredInsights} evidence={currentProspect.painEvidence} />
+                <details className="rounded-2xl border border-slate-200 bg-slate-50">
+                  <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between px-4 text-sm font-semibold text-slate-700">
+                    Technische Quellen / Rohdaten
+                    <ChevronDown className="h-4 w-4" aria-hidden="true" />
+                  </summary>
+                  <div className="border-t border-slate-200 p-3">
+                    <ResearchSourcesView value={currentProspect.researchSources} />
+                  </div>
+                </details>
                 {researchError ? (
                   <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{researchError}</div>
                 ) : null}
@@ -1168,6 +1194,21 @@ async function applyContactCandidate(candidate: UiContactCandidate) {
           </div>
         </div>
       ) : null}
+      {showContactCandidates && contactCandidates.length > 0 ? (
+        <ContactCandidatesModal
+          candidates={contactCandidates}
+          onClose={() => setShowContactCandidates(false)}
+          onApply={(candidate) => runAction(() => applyContactCandidate(candidate))}
+        />
+      ) : null}
+      {showPrintMailingModal ? (
+        <PrintMailingModal
+          prospect={currentProspect}
+          contactName={reliableContact?.name ?? null}
+          painHypothesis={painHypothesis}
+          onClose={() => setShowPrintMailingModal(false)}
+        />
+      ) : null}
     </div>
   );
 }
@@ -1188,6 +1229,148 @@ function Panel({ title, children }: { title: string; children: React.ReactNode }
       <h2 className="text-lg font-semibold text-ink">{title}</h2>
       <div className="mt-4">{children}</div>
     </section>
+  );
+}
+
+function QualityBadge({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+  const tone = value === "sicher" || value === "vorhanden" || value === "bereit"
+    ? "border-emerald-100 bg-emerald-50 text-emerald-800"
+    : value === "fehlt" || value === "unvollständig"
+      ? "border-amber-100 bg-amber-50 text-amber-800"
+      : "border-blue-100 bg-blue-50 text-blue-800";
+  return (
+    <div className={`flex items-center gap-3 rounded-2xl border p-3 ${tone}`}>
+      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-white/80">{icon}</span>
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-[0.14em] opacity-70">{label}</p>
+        <p className="mt-0.5 text-sm font-semibold capitalize">{value}</p>
+      </div>
+    </div>
+  );
+}
+
+function StructuredInsightsView({
+  insights,
+  evidence
+}: {
+  insights: ReturnType<typeof buildStructuredLeadInsights>;
+  evidence: unknown;
+}) {
+  return (
+    <div className="grid gap-3 lg:grid-cols-2">
+      <InsightBox title="Relevante Signale" items={insights.relevantSignals} />
+      <InsightBox title="Mögliche Pain Points" items={insights.possiblePainPoints} />
+      <InsightBox title="Warum Tasklytic passt" items={insights.tasklyticFit} />
+      <InsightBox title="Unsicherheit / Annahmen" items={[insights.uncertainty, formatEvidence(evidence)].filter((item): item is string => Boolean(item))} />
+      <InsightBox title="Verwendete Quellen" items={insights.sources} className="lg:col-span-2" />
+    </div>
+  );
+}
+
+function InsightBox({ title, items, className = "" }: { title: string; items: string[]; className?: string }) {
+  return (
+    <div className={`rounded-2xl border border-slate-200 bg-slate-50 p-4 ${className}`}>
+      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">{title}</p>
+      <ul className="mt-3 space-y-2 text-sm leading-6 text-slate-700">
+        {items.filter(Boolean).map((item, index) => (
+          <li key={`${title}-${index}`} className="flex gap-2">
+            <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500" aria-hidden="true" />
+            <span className="break-words">{cleanLeadText(item, 2) ?? item}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function ContactCandidatesModal({
+  candidates,
+  onClose,
+  onApply
+}: {
+  candidates: UiContactCandidate[];
+  onClose: () => void;
+  onApply: (candidate: UiContactCandidate) => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/50 p-4">
+      <div role="dialog" aria-modal="true" aria-labelledby="contact-candidates-title" className="w-full max-w-2xl rounded-2xl bg-white p-5 shadow-2xl">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h3 id="contact-candidates-title" className="text-lg font-semibold text-ink">Kontaktkandidaten prüfen</h3>
+            <p className="mt-1 text-sm text-slate-500">Wähle nur einen Hauptkontakt, wenn Name und Kontext plausibel sind.</p>
+          </div>
+          <button type="button" onClick={onClose} className="grid h-10 w-10 place-items-center rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50" aria-label="Schließen">
+            <X className="h-4 w-4" aria-hidden="true" />
+          </button>
+        </div>
+        <div className="mt-5 grid gap-3">
+          {candidates.map((candidate, index) => (
+            <div key={`${candidate.fullName}-${index}`} className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="font-semibold text-ink">{candidate.fullName}</p>
+                  <p className="mt-1 text-slate-600">{[candidate.role, candidate.email, candidate.phone].filter(Boolean).join(" · ") || "Keine weiteren Kontaktdaten"}</p>
+                  <p className="mt-1 text-xs text-slate-500">{[formatContactConfidence(candidate.confidenceLabel), candidate.sourceArea ? formatSourceArea(candidate.sourceArea) : null, candidate.sourceUrl].filter(Boolean).join(" · ")}</p>
+                </div>
+                <button type="button" onClick={() => onApply(candidate)} className="btn-primary rounded-xl px-3 py-2 text-xs font-semibold">
+                  Als Hauptkontakt übernehmen
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PrintMailingModal({
+  prospect,
+  contactName,
+  painHypothesis,
+  onClose
+}: {
+  prospect: ProspectCrmPanelData;
+  contactName: string | null;
+  painHypothesis: string;
+  onClose: () => void;
+}) {
+  const address = [prospect.street, [prospect.postalCode, prospect.city].filter(Boolean).join(" "), prospect.country].filter(Boolean).join("\n");
+  const letterText = `Hallo${contactName ? ` ${contactName}` : ""},\n\nwir haben uns ${prospect.companyName} kurz angesehen und vermuten, dass Tasklytic bei wiederkehrenden Backoffice- und Abstimmungsprozessen entlasten kann.\n\n${painHypothesis}\n\nGern bereiten wir eine kurze Einschätzung vor, welche Prozesse sich pragmatisch automatisieren lassen.`;
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/50 p-4">
+      <div role="dialog" aria-modal="true" aria-labelledby="print-mailing-title" className="w-full max-w-2xl rounded-2xl bg-white p-5 shadow-2xl">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h3 id="print-mailing-title" className="text-lg font-semibold text-ink">Printversand vorbereiten</h3>
+            <p className="mt-1 text-sm text-slate-500">Platzhalter für den späteren Versandprozess. Es wird noch kein Brief versendet.</p>
+          </div>
+          <button type="button" onClick={onClose} className="grid h-10 w-10 place-items-center rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50" aria-label="Schließen">
+            <X className="h-4 w-4" aria-hidden="true" />
+          </button>
+        </div>
+        <div className="mt-5 grid gap-3">
+          <InfoGrid items={[
+            ["Warum empfohlen?", painHypothesis],
+            ["Firmenadresse", address || "k. A."],
+            ["Ansprechpartner", contactName ?? prospect.decisionMakerName ?? "Kontakt offen"],
+            ["Status", "vorbereitet"]
+          ]} />
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Empfohlener Brieftext</p>
+            <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-700">{letterText}</p>
+          </div>
+          <div className="flex flex-wrap justify-end gap-3">
+            <button type="button" onClick={onClose} className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700">Nicht senden</button>
+            <button type="button" className="btn-primary inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold">
+              <Printer className="h-4 w-4" aria-hidden="true" />
+              Printversand vorbereiten
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -1594,14 +1777,14 @@ function isReliableContactName(value: string) {
 
 type UiContactCandidate = {
   fullName?: string;
-  role?: string;
-  email?: string;
-  phone?: string;
-  sourceUrl?: string;
-  sourceArea?: string;
+  role?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  sourceUrl?: string | null;
+  sourceArea?: string | null;
   score?: number;
   selectedAsPrimary?: boolean;
-  confidenceLabel?: string;
+  confidenceLabel?: string | null;
 };
 
 function EnrichmentDebugView({ value }: { value: unknown }) {

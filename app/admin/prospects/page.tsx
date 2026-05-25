@@ -368,6 +368,7 @@ function toCrmPanelData(prospect: ProspectWithCrm, targetGroups: Array<{ id: str
     slug: prospect.slug,
     landingpageUrl: prospect.landingpageUrl,
     landingpageReviewStatus: prospect.landingpageReviewStatus,
+    printMailingRecommended: shouldRecommendPrintMailing(prospect),
     personalVideoStatus: prospect.personalVideoStatus,
     personalVideoUrl: prospect.personalVideoUrl,
     videoUrl: prospect.videoUrl,

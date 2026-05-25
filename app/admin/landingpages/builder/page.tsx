@@ -5,12 +5,16 @@ import { prisma } from "@/lib/prisma";
 export const dynamic = "force-dynamic";
 
 export default async function LandingpageBuilderPage() {
-  const [template, prospects] = await Promise.all([
+  const [template, prospects, bookingCalendars] = await Promise.all([
     getBuilderTemplate(),
-    prisma.prospect.findMany({ orderBy: { createdAt: "desc" }, take: 50 })
+    prisma.prospect.findMany({ orderBy: { createdAt: "desc" }, take: 50 }),
+    prisma.bookingCalendar.findMany({
+      orderBy: [{ isDefault: "desc" }, { updatedAt: "desc" }],
+      take: 25
+    })
   ]);
 
-  return <VisualLandingpageTemplateEditor template={template} prospects={prospects} backHref="/admin/landingpages/templates" />;
+  return <VisualLandingpageTemplateEditor template={template} prospects={prospects} bookingCalendars={bookingCalendars.map(serializeBookingCalendar)} backHref="/admin/landingpages/templates" />;
 }
 
 async function getBuilderTemplate() {
@@ -19,4 +23,16 @@ async function getBuilderTemplate() {
   });
   if (existing) return existing;
   return prisma.landingpageTemplate.create({ data: defaultLandingpageTemplate() });
+}
+
+function serializeBookingCalendar(calendar: Awaited<ReturnType<typeof prisma.bookingCalendar.findMany>>[number]) {
+  return {
+    id: calendar.id,
+    provider: calendar.provider,
+    displayName: calendar.displayName,
+    bookingUrl: calendar.bookingUrl,
+    description: calendar.description,
+    isActive: calendar.isActive,
+    isDefault: calendar.isDefault
+  };
 }

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { Prisma, Prospect } from "@prisma/client";
 import { z } from "zod";
 import { getErrorMessage, isRecordNotFoundError } from "@/lib/api";
+import { stateFromGermanPostalCode } from "@/lib/lead-data-quality";
 import { prisma } from "@/lib/prisma";
 import type { ProspectInput } from "@/lib/prospects";
 import { parseProspectPayload } from "@/lib/prospects";
@@ -400,6 +401,11 @@ function buildManualProspectUpdate(
       }
       data[field] = patch[field] as never;
     }
+  }
+
+  if ("postalCode" in patch && !("state" in patch)) {
+    const derivedState = stateFromGermanPostalCode(patch.postalCode);
+    if (derivedState && !current.state) data.state = derivedState;
   }
 
   if ("painSummary" in patch || "customPainPoint" in patch) {
