@@ -1,4 +1,5 @@
 import type { ProspectInput } from "@/lib/prospects";
+import { composeDecisionMakerName, hasProspectContactPerson } from "@/lib/prospects";
 
 export type ProspectScores = {
   icpScore: number;
@@ -70,10 +71,15 @@ function normalizeFieldText(...values: Array<string | null | undefined>): string
 }
 
 export function calculateProspectScore(prospect: Partial<ProspectInput>, offer?: ScoreOfferContext): ProspectScores {
+  const normalizedDecisionMakerName = prospect.decisionMakerName ?? composeDecisionMakerName(prospect.firstName, prospect.lastName);
+
   const hasIndustryFit = hasLogisticsSignal(prospect, offer);
   const hasWebsite = Boolean(prospect.websiteUrl);
   const hasEmployeeInfo = Boolean(prospect.employeeCount || prospect.employeeRange);
-  const hasContactPerson = Boolean(prospect.decisionMakerName || prospect.decisionMakerRole);
+  const hasContactPerson = hasProspectContactPerson({
+    ...prospect,
+    decisionMakerName: normalizedDecisionMakerName
+  });
   const hasEmail = Boolean(prospect.decisionMakerEmail || prospect.companyEmail);
 
   let icpScore = 0;
@@ -105,8 +111,9 @@ export function calculateProspectScore(prospect: Partial<ProspectInput>, offer?:
   if (prospect.decisionMakerEmail) {
     contactQualityScore += prospect.decisionMakerEmail.toLowerCase().startsWith("info@") ? 10 : 50;
   }
-  if (prospect.decisionMakerName) contactQualityScore += 15;
+  if (normalizedDecisionMakerName) contactQualityScore += 15;
   if (prospect.linkedinUrl) contactQualityScore += 10;
+  if (prospect.decisionMakerRole) contactQualityScore += 10;
 
   const painScore = clampScore(
     painSignals.reduce((sum, signal) => sum + signal.strength, 0) +
