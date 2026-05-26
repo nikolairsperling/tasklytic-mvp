@@ -151,11 +151,30 @@ export function splitDecisionMakerName(name: string | null | undefined): { first
   };
 }
 
+export function composeDecisionMakerName(firstName?: string | null, lastName?: string | null): string | undefined {
+  const fullName = [firstName, lastName]
+    .map((part) => part?.trim())
+    .filter(Boolean)
+    .join(" ");
+
+  return fullName || undefined;
+}
+
+export function hasProspectContactPerson(prospect: Partial<ProspectInput>): boolean {
+  const hasFullName = Boolean(prospect.decisionMakerName || composeDecisionMakerName(prospect.firstName, prospect.lastName));
+  return Boolean(hasFullName && prospect.decisionMakerRole);
+}
+
 function applyNameParts(input: ProspectInput): ProspectInput {
-  if (!input.decisionMakerName) return input;
-  const parts = splitDecisionMakerName(input.decisionMakerName);
+  const composedName = composeDecisionMakerName(input.firstName, input.lastName);
+  const decisionMakerName = input.decisionMakerName ?? composedName;
+
+  if (!decisionMakerName) return input;
+
+  const parts = splitDecisionMakerName(decisionMakerName);
   return {
     ...input,
+    decisionMakerName,
     firstName: input.firstName ?? parts.firstName,
     lastName: input.lastName ?? parts.lastName
   };
