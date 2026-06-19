@@ -3,6 +3,7 @@ export type AdminNavItem = {
   label: string;
   key:
     | "overview"
+    | "copilot"
     | "leads"
     | "leadScout"
     | "leadLists"
@@ -35,7 +36,8 @@ export const adminNavGroups: AdminNavGroup[] = [
   {
     label: "ÜBERSICHT",
     items: [
-      { href: "/admin/dashboard", label: "Übersicht", key: "overview" }
+      { href: "/admin/dashboard", label: "Übersicht", key: "overview" },
+      { href: "/admin/copilot", label: "Copilot", key: "copilot" }
     ]
   },
   {
@@ -84,6 +86,7 @@ export const adminNavGroups: AdminNavGroup[] = [
 export const adminRouteItems: AdminNavItem[] = [
   { href: "/admin", label: "Übersicht", key: "overview" },
   { href: "/admin/dashboard", label: "Übersicht", key: "overview" },
+  { href: "/admin/copilot", label: "Copilot", key: "copilot" },
   ...adminNavGroups.flatMap((group) => group.items),
   { href: "/admin/setup", label: "Setup Center", key: "setup" },
   { href: "/admin/setup/offers", label: "Angebote", key: "offer" },

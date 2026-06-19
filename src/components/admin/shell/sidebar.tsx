@@ -2,6 +2,7 @@
 
 import {
   BarChart3,
+  Bot,
   Folder,
   GitBranch,
   Globe,
@@ -24,6 +25,7 @@ import { adminNavGroups, type AdminNavItem } from "@/lib/admin-navigation";
 
 export const NAV_ICONS: Record<AdminNavItem["key"], LucideIcon> = {
   overview: LayoutDashboard,
+  copilot: Bot,
   leads: Users,
   leadLists: Folder,
   leadScout: Search,
